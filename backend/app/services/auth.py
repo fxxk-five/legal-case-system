@@ -7,7 +7,7 @@ from app.schemas.auth import UserRegister
 
 def authenticate_user(db: Session, *, phone: str, password: str) -> User | None:
     user = db.query(User).filter(User.phone == phone).first()
-    if not user or not verify_password(password, user.password_hash):
+    if not user or user.status != 1 or not verify_password(password, user.password_hash):
         return None
     return user
 
@@ -19,6 +19,7 @@ def create_user(
     tenant_id: int,
     role: str = "lawyer",
     is_tenant_admin: bool = False,
+    status: int = 1,
 ) -> User:
     user = User(
         tenant_id=tenant_id,
@@ -27,7 +28,7 @@ def create_user(
         role=role,
         is_tenant_admin=is_tenant_admin,
         password_hash=get_password_hash(user_in.password),
-        status=1,
+        status=status,
     )
     db.add(user)
     db.commit()

@@ -3,10 +3,13 @@ from sqlalchemy.orm import Session
 
 from app.core.security import create_access_token
 from app.db.session import get_db
+from app.models.invite import Invite
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.auth import Token, UserLogin, UserRead, UserRegister
+from app.schemas.invite import InviteRegister
 from app.services.auth import authenticate_user, create_user
+from app.services.invite import get_valid_invite
 
 
 router = APIRouter(prefix="/auth", tags=["Auth"])
@@ -50,3 +53,37 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)) -> Token:
             extra_data={"tenant_id": user.tenant_id, "role": user.role},
         )
     )
+
+
+@router.post("/invite-register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+def register_user_by_invite(invite_in: InviteRegister, db: Session = Depends(get_db)) -> User:
+    invite = get_valid_invite(db, token=invite_in.token)
+
+    existing_user = (
+        db.query(User)
+        .filter(User.tenant_id == invite.tenant_id, User.phone == invite_in.phone)
+        .first()
+    )
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该手机号已存在于当前租户。",
+        )
+
+    user = create_user(
+        db,
+        user_in=UserRegister(
+            phone=invite_in.phone,
+            password=invite_in.password,
+            real_name=invite_in.real_name,
+        ),
+        tenant_id=invite.tenant_id,
+        role=invite.role,
+        status=0,
+    )
+
+    invite.status = "used"
+    db.add(invite)
+    db.commit()
+
+    return user

@@ -31,3 +31,4 @@ class User(Base, TimestampMixin):
         foreign_keys="Case.client_id",
     )
     uploaded_files = relationship("File", back_populates="uploader")
+    sent_invites = relationship("Invite")

@@ -42,6 +42,13 @@
 - 已添加数据库初始化脚本
 - 已实现注册、登录、当前用户接口
 
+## 第 10 到第 19 天当前进度
+
+- 已实现律师邀请注册与审批接口
+- 已实现案件文件上传、列表、下载接口
+- 已初始化 Web 前端项目
+- 已完成登录页、概览页、案件列表页
+
 ## 第 2 天前的本地准备
 
 请先安装并确认以下工具可用：
@@ -76,3 +83,9 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1
 - `docs/day-03-checklist.md`
 - `docs/day-04-checklist.md`
 - `docs/day-05-checklist.md`
+- `docs/day-13-checklist.md`
+- `docs/day-14-checklist.md`
+- `docs/day-15-checklist.md`
+- `docs/day-16-checklist.md`
+- `docs/day-18-checklist.md`
+- `docs/day-19-checklist.md`

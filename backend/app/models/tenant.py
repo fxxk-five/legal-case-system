@@ -21,3 +21,4 @@ class Tenant(Base, TimestampMixin):
     users = relationship("User", back_populates="tenant")
     cases = relationship("Case", back_populates="tenant")
     files = relationship("File", back_populates="tenant")
+    invites = relationship("Invite")
