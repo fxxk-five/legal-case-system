@@ -1,44 +1,44 @@
-# Day 1 Checklist
+# 第 1 天检查清单
 
-## Completed in workspace
+## 仓库内已完成
 
-- Created project root: `legal-case-system`
-- Created base directories:
+- 已创建项目根目录：`legal-case-system`
+- 已创建基础目录：
   - `backend/`
   - `web-frontend/`
   - `mini-program/`
   - `docs/`
-- Created helper directory:
+- 已创建辅助目录：
   - `scripts/`
-- Added `README.md`
-- Added `.gitignore`
-- Added `.editorconfig`
-- Added local environment check script
-- Added project setup documentation
+- 已添加 `README.md`
+- 已添加 `.gitignore`
+- 已添加 `.editorconfig`
+- 已添加本地环境检查脚本
+- 已添加项目初始化文档
 
-## You still need to do locally
+## 你还需要在本机完成
 
-- Confirm installations:
+- 确认以下命令可以正常执行：
   - `python --version`
   - `node --version`
   - `psql --version`
-  - `redis-server --version` or `redis-cli --version`
+  - `redis-server --version` 或 `redis-cli --version`
   - `docker --version`
   - `git --version`
   - `code --version`
-- Or run:
+- 或直接运行：
   - `powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1`
-- Install VS Code extensions:
+- 安装 VS Code 插件：
   - Python
   - Vue - Official
   - Prettier
   - ESLint
-- Create remote repository on GitHub or Gitee
-- Run:
-  - `git remote add origin <your-repo-url>`
+- 在 GitHub 或 Gitee 创建远程仓库
+- 执行：
+  - `git remote add origin <你的仓库地址>`
   - `git push -u origin main`
 
-## Notes
+## 说明
 
-- The remote repository was not created automatically because that requires your account access.
-- Package installation was not attempted because Day 1 is environment setup only.
+- 没有自动创建远程仓库，因为这一步需要你的账号权限。
+- 第 1 天只做环境和仓库初始化，因此没有安装项目依赖包。

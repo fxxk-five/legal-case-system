@@ -1,34 +1,42 @@
-# Legal Case System
+# 法律案件管理系统
 
-Single-law-firm pilot with multi-tenant-ready architecture.
+面向单律所试点、具备多租户扩展能力的法律案件管理系统。
 
-## Stack Plan
+## 技术规划
 
-- Backend: FastAPI + SQLAlchemy + Alembic + PostgreSQL
-- Web: Vue 3 + Vite + Element Plus
-- Mini Program: uni-app
-- Infrastructure: Docker + Redis + Nginx
+- 后端：FastAPI + SQLAlchemy + Alembic + PostgreSQL
+- Web 端：Vue 3 + Vite + Element Plus
+- 小程序端：uni-app
+- 基础设施：Docker + Redis + Nginx
 
-## Repository Structure
+## 仓库结构
 
-- `backend/`: FastAPI backend service
-- `web-frontend/`: Vue 3 web application
-- `mini-program/`: uni-app / WeChat Mini Program
-- `docs/`: planning, setup, deployment, API notes
-- `scripts/`: local helper scripts
+- `backend/`：FastAPI 后端服务
+- `web-frontend/`：Vue 3 Web 前端
+- `mini-program/`：uni-app 微信小程序
+- `docs/`：规划、环境搭建、部署、接口等文档
+- `scripts/`：本地辅助脚本
 
-## Day 1 Deliverables
+## 第 1 天已完成内容
 
-- Project skeleton created
-- Git repository initialized
-- `.gitignore` added
-- `.editorconfig` added
-- Environment check script added
-- Setup docs added
+- 创建项目基础目录
+- 初始化 Git 仓库
+- 添加 `.gitignore`
+- 添加 `.editorconfig`
+- 添加环境检查脚本
+- 添加初始化文档
 
-## Local Prerequisites
+## 第 2 天当前进度
 
-Install and verify these before Day 2:
+- 已创建 FastAPI 后端骨架
+- 已创建 Python 虚拟环境
+- 已安装后端依赖
+- 已完成配置文件与应用入口
+- 已准备 `.env.example` 和 `requirements.txt`
+
+## 第 2 天前的本地准备
+
+请先安装并确认以下工具可用：
 
 - Python 3.10+
 - Node.js 18+
@@ -38,21 +46,22 @@ Install and verify these before Day 2:
 - Git
 - VS Code
 
-## Quick Start
+## 快速开始
 
-Run the local environment check on Windows:
+Windows 环境下可先运行本地环境检查脚本：
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1
 ```
 
-Then:
+然后完成以下操作：
 
-1. Create a remote repository on GitHub or Gitee.
-2. Add the remote locally.
-3. Push the current branch.
+1. 在 GitHub 或 Gitee 创建远程仓库
+2. 在本地添加远程仓库
+3. 推送当前分支
 
-## Related Docs
+## 相关文档
 
 - `docs/day-01-checklist.md`
 - `docs/project-setup.md`
+- `docs/day-02-checklist.md`
