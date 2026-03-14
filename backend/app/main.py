@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.api_v1 import api_router
 from app.core.config import settings
 
 
@@ -18,11 +19,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(api_router, prefix=settings.API_V1_STR)
+
 
 @app.get("/", tags=["Root"])
 def root() -> dict[str, str]:
     return {"message": "法律案件管理系统后端已启动"}
-
 
 @app.get(f"{settings.API_V1_STR}/health", tags=["Health"])
 def health_check() -> dict[str, str]:

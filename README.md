@@ -34,6 +34,14 @@
 - 已完成配置文件与应用入口
 - 已准备 `.env.example` 和 `requirements.txt`
 
+## 第 3 到第 5 天当前进度
+
+- 已接入 SQLAlchemy 与会话管理
+- 已建立 `Tenant`、`User`、`Case`、`File` 核心模型
+- 已初始化 Alembic 并补写首个迁移
+- 已添加数据库初始化脚本
+- 已实现注册、登录、当前用户接口
+
 ## 第 2 天前的本地准备
 
 请先安装并确认以下工具可用：
@@ -65,3 +73,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1
 - `docs/day-01-checklist.md`
 - `docs/project-setup.md`
 - `docs/day-02-checklist.md`
+- `docs/day-03-checklist.md`
+- `docs/day-04-checklist.md`
+- `docs/day-05-checklist.md`
