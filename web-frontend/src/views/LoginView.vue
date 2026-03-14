@@ -14,6 +14,13 @@
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password placeholder="请输入密码" />
         </el-form-item>
+        <el-alert
+          v-if="backendStatus"
+          :title="backendStatus"
+          :type="backendHealthy ? 'success' : 'warning'"
+          show-icon
+          :closable="false"
+        />
         <el-alert v-if="errorMessage" :title="errorMessage" type="error" show-icon :closable="false" />
         <el-button class="login-button" type="primary" :loading="submitting" @click="handleSubmit">
           登录
@@ -29,8 +36,9 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import axios from 'axios'
 
 import { useAuthStore } from '../stores/auth'
 
@@ -45,6 +53,19 @@ const form = reactive({
 
 const submitting = ref(false)
 const errorMessage = ref('')
+const backendHealthy = ref(false)
+const backendStatus = ref('')
+
+onMounted(async () => {
+  try {
+    await authStore.checkBackendHealth()
+    backendHealthy.value = true
+    backendStatus.value = '后端服务连接正常'
+  } catch (error) {
+    backendHealthy.value = false
+    backendStatus.value = '后端服务未连接，请先启动 backend'
+  }
+})
 
 async function handleSubmit() {
   submitting.value = true
@@ -53,7 +74,17 @@ async function handleSubmit() {
     await authStore.login(form)
     await router.push(route.query.redirect || '/')
   } catch (error) {
-    errorMessage.value = error?.response?.data?.detail || '登录失败，请检查账号密码。'
+    if (axios.isAxiosError(error)) {
+      if (!error.response) {
+        errorMessage.value = '无法连接后端服务，请先启动 backend。'
+      } else if (error.response.status === 401) {
+        errorMessage.value = error.response.data?.detail || '账号或密码错误。'
+      } else {
+        errorMessage.value = error.response.data?.detail || '登录失败，请检查后端接口。'
+      }
+    } else {
+      errorMessage.value = '登录失败，请稍后重试。'
+    }
   } finally {
     submitting.value = false
   }

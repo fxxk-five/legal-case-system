@@ -31,6 +31,7 @@ http://127.0.0.1:8000/api/v1
 如果后端地址变化，可修改：
 
 - `src/lib/http.js`
+- 或复制 `.env.example` 为 `.env` 后修改 `VITE_API_BASE_URL`
 
 ## 默认测试账号
 
@@ -44,6 +45,12 @@ http://127.0.0.1:8000/api/v1
 cd D:\code\law\legal-case-system\web-frontend
 npm install
 npm run dev
+```
+
+如果需要自定义接口地址：
+
+```powershell
+Copy-Item .env.example .env
 ```
 
 ## 说明

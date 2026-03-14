@@ -9,10 +9,15 @@ export const useAuthStore = defineStore('auth', {
   }),
   actions: {
     async login(payload) {
-      const { data } = await http.post('/auth/login', payload)
-      this.token = data.access_token
-      localStorage.setItem('access_token', this.token)
-      await this.fetchCurrentUser()
+      try {
+        const { data } = await http.post('/auth/login', payload)
+        this.token = data.access_token
+        localStorage.setItem('access_token', this.token)
+        await this.fetchCurrentUser()
+      } catch (error) {
+        this.logout()
+        throw error
+      }
     },
     async fetchCurrentUser() {
       if (!this.token) {
@@ -21,6 +26,10 @@ export const useAuthStore = defineStore('auth', {
       }
       const { data } = await http.get('/users/me')
       this.currentUser = data
+    },
+    async checkBackendHealth() {
+      const { data } = await http.get('/health')
+      return data
     },
     logout() {
       this.token = ''

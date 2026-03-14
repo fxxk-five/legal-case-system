@@ -32,6 +32,14 @@ def init_seed_data(db: Session) -> None:
         )
         db.add(admin)
         db.commit()
+    else:
+        admin.real_name = "默认管理员"
+        admin.role = "tenant_admin"
+        admin.is_tenant_admin = True
+        admin.status = 1
+        admin.password_hash = get_password_hash("admin123456")
+        db.add(admin)
+        db.commit()
 
     print("初始化数据完成。")
     print(f"默认租户：{tenant.name} (tenant_id={tenant.id})")

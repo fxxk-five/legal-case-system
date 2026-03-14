@@ -18,5 +18,5 @@ class Invite(Base, TimestampMixin):
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False, default="pending", index=True)
 
-    tenant = relationship("Tenant")
-    invited_by = relationship("User")
+    tenant = relationship("Tenant", back_populates="invites")
+    invited_by = relationship("User", back_populates="sent_invites")

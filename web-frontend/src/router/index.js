@@ -3,6 +3,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import pinia from '../stores'
 import { useAuthStore } from '../stores/auth'
 import DashboardLayout from '../views/DashboardLayout.vue'
+import CaseDetailView from '../views/CaseDetailView.vue'
 import CasesView from '../views/CasesView.vue'
 import LoginView from '../views/LoginView.vue'
 import OverviewView from '../views/OverviewView.vue'
@@ -29,6 +30,11 @@ const router = createRouter({
           path: 'cases',
           name: 'cases',
           component: CasesView,
+        },
+        {
+          path: 'cases/:id',
+          name: 'case-detail',
+          component: CaseDetailView,
         },
       ],
     },

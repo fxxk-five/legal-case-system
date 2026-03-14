@@ -9,7 +9,11 @@
     </div>
 
     <el-table :data="cases" stripe>
-      <el-table-column prop="case_number" label="案号" min-width="160" />
+      <el-table-column label="案号" min-width="160">
+        <template #default="{ row }">
+          <RouterLink :to="`/cases/${row.id}`" class="case-link">{{ row.case_number }}</RouterLink>
+        </template>
+      </el-table-column>
       <el-table-column prop="title" label="标题" min-width="220" />
       <el-table-column label="当事人" min-width="140">
         <template #default="{ row }">
@@ -24,6 +28,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
+import { RouterLink } from 'vue-router'
 
 import http from '../lib/http'
 
