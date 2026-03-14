@@ -63,6 +63,14 @@
 - 已完成待审批律师处理
 - 已完成机构设置页
 
+## 第 33 到第 39 天当前进度
+
+- 已完成通知模型与通知接口
+- 已完成 Web 端通知入口
+- 已补充 API 冒烟测试脚本
+- 已完成 Dockerfile、Compose、Nginx 配置
+- 已补充部署说明
+
 ## 第 2 天前的本地准备
 
 请先安装并确认以下工具可用：
@@ -108,3 +116,10 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1
 - `docs/day-29-checklist.md`
 - `docs/day-30-checklist.md`
 - `docs/day-32-checklist.md`
+- `docs/day-33-checklist.md`
+- `docs/day-34-checklist.md`
+- `docs/day-35-checklist.md`
+- `docs/day-37-checklist.md`
+- `docs/day-38-checklist.md`
+- `docs/day-39-checklist.md`
+- `docs/deployment-guide.md`

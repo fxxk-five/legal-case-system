@@ -25,6 +25,38 @@
           <h1>{{ authStore.currentUser?.real_name || '未登录用户' }}</h1>
         </div>
         <div class="header-actions">
+          <el-popover placement="bottom" :width="360" trigger="click" @show="loadNotifications">
+            <template #reference>
+              <el-badge :value="notificationStore.unreadCount" :hidden="notificationStore.unreadCount === 0">
+                <el-button plain>通知</el-button>
+              </el-badge>
+            </template>
+
+            <div class="notification-panel">
+              <div class="notification-head">
+                <strong>通知</strong>
+                <el-button link type="primary" @click="loadNotifications">刷新</el-button>
+              </div>
+              <div v-if="notificationStore.items.length === 0" class="notification-empty">
+                暂无通知
+              </div>
+              <div
+                v-for="item in notificationStore.items"
+                :key="item.id"
+                class="notification-item"
+                :class="{ unread: !item.is_read }"
+              >
+                <div class="notification-copy">
+                  <strong>{{ item.title }}</strong>
+                  <p>{{ item.content }}</p>
+                </div>
+                <el-button v-if="!item.is_read" link type="primary" @click="markRead(item.id)">
+                  已读
+                </el-button>
+              </div>
+            </div>
+          </el-popover>
+
           <span class="header-role">{{ authStore.currentUser?.role || '-' }}</span>
           <el-button plain @click="handleLogout">退出</el-button>
         </div>
@@ -42,17 +74,28 @@ import { computed, onMounted } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
+import { useNotificationStore } from '../stores/notifications'
 
 const authStore = useAuthStore()
+const notificationStore = useNotificationStore()
 const router = useRouter()
 
 const isAdmin = computed(
   () => authStore.currentUser?.is_tenant_admin || authStore.currentUser?.role === 'tenant_admin',
 )
 
-onMounted(() => {
-  authStore.fetchCurrentUser()
+onMounted(async () => {
+  await authStore.fetchCurrentUser()
+  await loadNotifications()
 })
+
+async function loadNotifications() {
+  await notificationStore.fetchNotifications()
+}
+
+async function markRead(notificationId) {
+  await notificationStore.markRead(notificationId)
+}
 
 function handleLogout() {
   authStore.logout()

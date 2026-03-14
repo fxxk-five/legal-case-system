@@ -2,6 +2,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import get_password_hash
+from app.models.notification import Notification
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -39,6 +40,22 @@ def init_seed_data(db: Session) -> None:
         admin.status = 1
         admin.password_hash = get_password_hash("admin123456")
         db.add(admin)
+        db.commit()
+
+    welcome_notification = (
+        db.query(Notification)
+        .filter(Notification.user_id == admin.id, Notification.title == "系统欢迎")
+        .first()
+    )
+    if welcome_notification is None:
+        db.add(
+            Notification(
+                user_id=admin.id,
+                title="系统欢迎",
+                content="欢迎使用法律案件管理系统，当前环境已完成基础初始化。",
+                is_read=False,
+            )
+        )
         db.commit()
 
     print("初始化数据完成。")

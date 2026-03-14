@@ -32,3 +32,4 @@ class User(Base, TimestampMixin):
     )
     uploaded_files = relationship("File", back_populates="uploader")
     sent_invites = relationship("Invite", back_populates="invited_by")
+    notifications = relationship("Notification", back_populates="user")
