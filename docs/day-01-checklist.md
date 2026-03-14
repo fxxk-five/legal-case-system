@@ -8,8 +8,13 @@
   - `web-frontend/`
   - `mini-program/`
   - `docs/`
+- Created helper directory:
+  - `scripts/`
 - Added `README.md`
 - Added `.gitignore`
+- Added `.editorconfig`
+- Added local environment check script
+- Added project setup documentation
 
 ## You still need to do locally
 
@@ -20,6 +25,9 @@
   - `redis-server --version` or `redis-cli --version`
   - `docker --version`
   - `git --version`
+  - `code --version`
+- Or run:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1`
 - Install VS Code extensions:
   - Python
   - Vue - Official
