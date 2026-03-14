@@ -61,7 +61,7 @@ onMounted(async () => {
     await authStore.checkBackendHealth()
     backendHealthy.value = true
     backendStatus.value = '后端服务连接正常'
-  } catch (error) {
+  } catch {
     backendHealthy.value = false
     backendStatus.value = '后端服务未连接，请先启动 backend'
   }

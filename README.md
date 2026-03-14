@@ -49,6 +49,13 @@
 - 已初始化 Web 前端项目
 - 已完成登录页、概览页、案件列表页
 
+## 第 20 到第 21 天当前进度
+
+- 已完成 Web 端新建案件弹窗
+- 已完成案件详情页
+- 已完成文件上传下载联调
+- 已完成案件状态更新
+
 ## 第 2 天前的本地准备
 
 请先安装并确认以下工具可用：
@@ -89,3 +96,5 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1
 - `docs/day-16-checklist.md`
 - `docs/day-18-checklist.md`
 - `docs/day-19-checklist.md`
+- `docs/day-20-checklist.md`
+- `docs/day-21-checklist.md`

@@ -15,6 +15,11 @@
       <h2>{{ cases.length }}</h2>
       <span>来自当前租户</span>
     </article>
+    <article class="summary-card">
+      <p>待审批律师</p>
+      <h2>{{ pendingLawyers.length }}</h2>
+      <span>需要管理员处理</span>
+    </article>
   </div>
 </template>
 
@@ -27,13 +32,25 @@ import { useAuthStore } from '../stores/auth'
 const authStore = useAuthStore()
 const tenant = ref(null)
 const cases = ref([])
+const pendingLawyers = ref([])
 
 onMounted(async () => {
-  const [tenantResp, casesResp] = await Promise.all([
+  if (!authStore.currentUser) {
+    await authStore.fetchCurrentUser()
+  }
+
+  const requests = [
     http.get('/tenants/current'),
     http.get('/cases'),
-  ])
+  ]
+
+  if (authStore.currentUser?.is_tenant_admin || authStore.currentUser?.role === 'tenant_admin') {
+    requests.push(http.get('/users/pending'))
+  }
+
+  const [tenantResp, casesResp, pendingResp] = await Promise.all(requests)
   tenant.value = tenantResp.data
   cases.value = casesResp.data
+  pendingLawyers.value = pendingResp?.data || []
 })
 </script>
