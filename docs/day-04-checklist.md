@@ -24,10 +24,9 @@ cd D:\code\law\legal-case-system\backend
 .\venv\Scripts\Activate.ps1
 Copy-Item .env.example .env
 python init_db.py
-venv\Scripts\alembic upgrade head
 ```
 
 ## 说明
 
 - 如果 `python init_db.py` 失败，优先检查 `.env` 中的数据库密码
-- 如果 `alembic upgrade head` 失败，也通常是数据库连接配置未对齐
+- `init_db.py` 已包含数据库创建和迁移逻辑，通常不需要再单独执行 `alembic upgrade head`

@@ -83,7 +83,6 @@ python -m uvicorn app.main:app --reload
 
 ```powershell
 python init_db.py
-venv\Scripts\alembic upgrade head
 ```
 
 默认初始化数据：

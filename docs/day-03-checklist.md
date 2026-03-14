@@ -40,12 +40,17 @@
 POSTGRES_PASSWORD=你的真实密码
 ```
 
-3. 如果数据库 `legal_case` 还不存在，先创建它
-4. 然后执行：
+3. 然后执行：
 
 ```powershell
 cd D:\code\law\legal-case-system\backend
 .\venv\Scripts\Activate.ps1
 python init_db.py
-venv\Scripts\alembic upgrade head
 ```
+
+`init_db.py` 现在会自动：
+
+- 检查数据库是否存在
+- 不存在时自动创建 `legal_case`
+- 执行 Alembic 迁移
+- 写入默认种子数据
