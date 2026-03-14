@@ -56,6 +56,13 @@
 - 已完成文件上传下载联调
 - 已完成案件状态更新
 
+## 第 29 到第 32 天当前进度
+
+- 已完成管理员首页统计面板
+- 已完成律师管理页
+- 已完成待审批律师处理
+- 已完成机构设置页
+
 ## 第 2 天前的本地准备
 
 请先安装并确认以下工具可用：
@@ -98,3 +105,6 @@ powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1
 - `docs/day-19-checklist.md`
 - `docs/day-20-checklist.md`
 - `docs/day-21-checklist.md`
+- `docs/day-29-checklist.md`
+- `docs/day-30-checklist.md`
+- `docs/day-32-checklist.md`

@@ -3,14 +3,12 @@ from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user, require_tenant_admin
-from app.models.invite import Invite
 from app.models.user import User
-from app.schemas.auth import UserRegister
+from app.schemas.auth import UserRead, UserRegister
 from app.schemas.invite import InviteCreateResponse
-from app.schemas.user import LawyerCreate, UserSummary
+from app.schemas.user import LawyerCreate, UserStatusUpdate, UserSummary
 from app.services.auth import create_user
 from app.services.invite import create_lawyer_invite
-from app.schemas.auth import UserRead
 
 
 router = APIRouter(prefix="/users", tags=["Users"])
@@ -136,3 +134,25 @@ def reject_user(
     db.delete(user)
     db.commit()
     return None
+
+
+@router.patch("/{user_id}/status", response_model=UserSummary)
+def update_user_status(
+    user_id: int,
+    user_in: UserStatusUpdate,
+    current_user: User = Depends(require_tenant_admin),
+    db: Session = Depends(get_db),
+) -> User:
+    user = (
+        db.query(User)
+        .filter(User.id == user_id, User.tenant_id == current_user.tenant_id)
+        .first()
+    )
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="用户不存在。")
+
+    user.status = user_in.status
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user

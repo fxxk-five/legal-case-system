@@ -84,6 +84,12 @@ a {
   margin-top: 8px;
 }
 
+.toolbar {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
 .login-hint {
   grid-column: 1 / -1;
   padding: 0 12px;
@@ -235,6 +241,14 @@ a {
   font-weight: 600;
 }
 
+.pending-block {
+  margin-top: 24px;
+}
+
+.settings-form {
+  max-width: 640px;
+}
+
 @media (max-width: 900px) {
   .login-panel,
   .dashboard-shell,
@@ -244,5 +258,9 @@ a {
 
   .sidebar {
     gap: 18px;
+  }
+
+  .toolbar {
+    flex-wrap: wrap;
   }
 }

@@ -1,0 +1,48 @@
+<template>
+  <section class="cases-page">
+    <div class="section-heading">
+      <div>
+        <p class="header-label">管理员</p>
+        <h2>管理面板</h2>
+      </div>
+      <el-button @click="loadStats">刷新</el-button>
+    </div>
+
+    <div class="panel-grid">
+      <article class="summary-card accent">
+        <p>律师总数</p>
+        <h2>{{ stats.lawyer_count }}</h2>
+        <span>当前租户</span>
+      </article>
+      <article class="summary-card">
+        <p>案件总数</p>
+        <h2>{{ stats.case_count }}</h2>
+        <span>系统中的案件记录</span>
+      </article>
+      <article class="summary-card">
+        <p>待审批律师</p>
+        <h2>{{ stats.pending_lawyer_count }}</h2>
+        <span>需要管理员处理</span>
+      </article>
+    </div>
+  </section>
+</template>
+
+<script setup>
+import { onMounted, reactive } from 'vue'
+
+import http from '../lib/http'
+
+const stats = reactive({
+  lawyer_count: 0,
+  case_count: 0,
+  pending_lawyer_count: 0,
+})
+
+async function loadStats() {
+  const { data } = await http.get('/stats/dashboard')
+  Object.assign(stats, data)
+}
+
+onMounted(loadStats)
+</script>

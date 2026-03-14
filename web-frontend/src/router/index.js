@@ -2,11 +2,14 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import pinia from '../stores'
 import { useAuthStore } from '../stores/auth'
+import AdminDashboardView from '../views/AdminDashboardView.vue'
 import DashboardLayout from '../views/DashboardLayout.vue'
 import CaseDetailView from '../views/CaseDetailView.vue'
 import CasesView from '../views/CasesView.vue'
+import LawyersView from '../views/LawyersView.vue'
 import LoginView from '../views/LoginView.vue'
 import OverviewView from '../views/OverviewView.vue'
+import SettingsView from '../views/SettingsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -35,6 +38,21 @@ const router = createRouter({
           path: 'cases/:id',
           name: 'case-detail',
           component: CaseDetailView,
+        },
+        {
+          path: 'admin',
+          name: 'admin',
+          component: AdminDashboardView,
+        },
+        {
+          path: 'lawyers',
+          name: 'lawyers',
+          component: LawyersView,
+        },
+        {
+          path: 'settings',
+          name: 'settings',
+          component: SettingsView,
         },
       ],
     },

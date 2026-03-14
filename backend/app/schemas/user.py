@@ -22,3 +22,7 @@ class UserSummary(BaseModel):
 
 class PendingUserSummary(UserSummary):
     pass
+
+
+class UserStatusUpdate(BaseModel):
+    status: int = Field(ge=0, le=1)

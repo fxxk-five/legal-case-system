@@ -12,6 +12,9 @@
       <nav class="nav-links">
         <RouterLink to="/">概览</RouterLink>
         <RouterLink to="/cases">案件列表</RouterLink>
+        <RouterLink v-if="isAdmin" to="/admin">管理面板</RouterLink>
+        <RouterLink v-if="isAdmin" to="/lawyers">律师管理</RouterLink>
+        <RouterLink v-if="isAdmin" to="/settings">机构设置</RouterLink>
       </nav>
     </aside>
 
@@ -35,13 +38,17 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 
 import { useAuthStore } from '../stores/auth'
 
 const authStore = useAuthStore()
 const router = useRouter()
+
+const isAdmin = computed(
+  () => authStore.currentUser?.is_tenant_admin || authStore.currentUser?.role === 'tenant_admin',
+)
 
 onMounted(() => {
   authStore.fetchCurrentUser()
