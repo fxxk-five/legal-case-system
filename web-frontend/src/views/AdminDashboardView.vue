@@ -5,7 +5,7 @@
         <p class="header-label">管理员</p>
         <h2>管理面板</h2>
       </div>
-      <el-button @click="loadStats">刷新</el-button>
+      <el-button :loading="loading" @click="loadStats">刷新</el-button>
     </div>
 
     <div class="panel-grid">
@@ -29,7 +29,8 @@
 </template>
 
 <script setup>
-import { onMounted, reactive } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 
 import http from '../lib/http'
 
@@ -38,10 +39,18 @@ const stats = reactive({
   case_count: 0,
   pending_lawyer_count: 0,
 })
+const loading = ref(false)
 
 async function loadStats() {
-  const { data } = await http.get('/stats/dashboard')
-  Object.assign(stats, data)
+  loading.value = true
+  try {
+    const { data } = await http.get('/stats/dashboard')
+    Object.assign(stats, data)
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '统计数据加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 onMounted(loadStats)

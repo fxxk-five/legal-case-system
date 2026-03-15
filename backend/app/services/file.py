@@ -1,7 +1,7 @@
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import UploadFile
+from fastapi import HTTPException, UploadFile, status
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -9,6 +9,9 @@ from app.models.file import File
 
 
 def save_upload_file(*, tenant_id: int, case_id: int, uploader_id: int, upload: UploadFile, db: Session) -> File:
+    if upload.filename is None or not upload.filename.strip():
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="上传文件名不能为空。")
+
     storage_root = Path(settings.LOCAL_STORAGE_DIR)
     target_dir = storage_root / f"tenant_{tenant_id}" / f"case_{case_id}"
     target_dir.mkdir(parents=True, exist_ok=True)

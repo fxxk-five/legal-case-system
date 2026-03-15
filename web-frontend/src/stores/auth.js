@@ -24,8 +24,13 @@ export const useAuthStore = defineStore('auth', {
         this.currentUser = null
         return
       }
-      const { data } = await http.get('/users/me')
-      this.currentUser = data
+      try {
+        const { data } = await http.get('/users/me')
+        this.currentUser = data
+      } catch (error) {
+        this.logout()
+        throw error
+      }
     },
     async checkBackendHealth() {
       const { data } = await http.get('/health')

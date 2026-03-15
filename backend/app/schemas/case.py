@@ -32,6 +32,7 @@ class CaseRead(BaseModel):
     created_at: datetime
     client: UserSummary | None = None
     assigned_lawyer: UserSummary | None = None
+    timeline: list["CaseTimelineItem"] = Field(default_factory=list)
 
 
 class CaseListItem(BaseModel):
@@ -44,3 +45,17 @@ class CaseListItem(BaseModel):
     created_at: datetime
     deadline: datetime | None
     client: UserSummary | None = None
+
+
+class CaseInviteRead(BaseModel):
+    case_id: int
+    tenant_id: int
+    token: str
+    path: str
+
+
+class CaseTimelineItem(BaseModel):
+    event_type: str
+    title: str
+    description: str
+    occurred_at: datetime

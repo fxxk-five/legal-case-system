@@ -37,6 +37,8 @@ def upload_case_file(
 ) -> File:
     case = _get_case(db, case_id=case_id, tenant_id=current_user.tenant_id)
     _ensure_case_access(case, current_user)
+    if current_user.role == "client" and case.client_id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="该案件尚未关联当事人。")
     return save_upload_file(
         tenant_id=current_user.tenant_id,
         case_id=case.id,

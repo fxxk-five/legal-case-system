@@ -4,13 +4,66 @@ from sqlalchemy.orm import Session, joinedload
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user
 from app.models.case import Case
+from app.models.file import File
 from app.models.user import User
-from app.schemas.case import CaseCreate, CaseListItem, CaseRead, CaseUpdate
-from app.services.auth import create_user
 from app.schemas.auth import UserRegister
+from app.schemas.case import CaseCreate, CaseInviteRead, CaseListItem, CaseRead, CaseTimelineItem, CaseUpdate
+from app.services.auth import create_user
+from app.services.mini_program import create_case_invite_token
 
 
 router = APIRouter(prefix="/cases", tags=["Cases"])
+
+
+def _build_case_timeline(db: Session, case: Case) -> list[CaseTimelineItem]:
+    timeline = [
+        CaseTimelineItem(
+            event_type="case_created",
+            title="案件已创建",
+            description=f"案件 {case.case_number} 已创建，当前状态为 {case.status}。",
+            occurred_at=case.created_at,
+        )
+    ]
+
+    if case.client is not None:
+        timeline.append(
+            CaseTimelineItem(
+                event_type="client_bound",
+                title="当事人已关联",
+                description=f"当事人 {case.client.real_name} 已关联到案件。",
+                occurred_at=case.client.created_at,
+            )
+        )
+
+    if case.deadline is not None:
+        timeline.append(
+            CaseTimelineItem(
+                event_type="deadline_set",
+                title="已设置截止日期",
+                description=f"案件截止时间为 {case.deadline.isoformat()}。",
+                occurred_at=case.deadline,
+            )
+        )
+
+    files = (
+        db.query(File)
+        .options(joinedload(File.uploader))
+        .filter(File.case_id == case.id, File.tenant_id == case.tenant_id)
+        .order_by(File.created_at.asc())
+        .all()
+    )
+    for file_record in files:
+        uploader_name = file_record.uploader.real_name if file_record.uploader else "未知用户"
+        timeline.append(
+            CaseTimelineItem(
+                event_type="file_uploaded",
+                title="新增案件材料",
+                description=f"{uploader_name} 上传了文件 {file_record.file_name}。",
+                occurred_at=file_record.created_at,
+            )
+        )
+
+    return sorted(timeline, key=lambda item: item.occurred_at, reverse=True)
 
 
 def _get_case_or_404(db: Session, *, case_id: int, tenant_id: int) -> Case:
@@ -81,6 +134,8 @@ def list_cases(
         .filter(Case.tenant_id == current_user.tenant_id)
         .order_by(Case.created_at.desc())
     )
+    if current_user.role == "client":
+        query = query.filter(Case.client_id == current_user.id)
     if status_filter:
         query = query.filter(Case.status == status_filter)
     return query.offset(skip).limit(limit).all()
@@ -95,6 +150,7 @@ def get_case(
     case = _get_case_or_404(db, case_id=case_id, tenant_id=current_user.tenant_id)
     if current_user.role == "client" and case.client_id != current_user.id:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="无权查看该案件。")
+    case.timeline = _build_case_timeline(db, case)
     return case
 
 
@@ -134,4 +190,21 @@ def update_case(
     db.add(case)
     db.commit()
     db.refresh(case)
-    return _get_case_or_404(db, case_id=case.id, tenant_id=current_user.tenant_id)
+    case = _get_case_or_404(db, case_id=case.id, tenant_id=current_user.tenant_id)
+    case.timeline = _build_case_timeline(db, case)
+    return case
+
+
+@router.get("/{case_id}/invite-qrcode", response_model=CaseInviteRead)
+def get_case_invite_qrcode(
+    case_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> CaseInviteRead:
+    case = _get_case_or_404(db, case_id=case_id, tenant_id=current_user.tenant_id)
+    if current_user.role not in {"lawyer", "tenant_admin"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="当前角色不能邀请当事人。")
+
+    token = create_case_invite_token(case_id=case.id, tenant_id=case.tenant_id)
+    path = f"pages/client/entry?token={token}"
+    return CaseInviteRead(case_id=case.id, tenant_id=case.tenant_id, token=token, path=path)

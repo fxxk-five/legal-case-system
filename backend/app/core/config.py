@@ -16,6 +16,10 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+    WECHAT_MINIAPP_APP_ID: str = ""
+    WECHAT_MINIAPP_APP_SECRET: str = ""
+    WECHAT_MINIAPP_MOCK_LOGIN: bool = True
+    WECHAT_MINIAPP_CLIENT_ENTRY_PAGE: str = "pages/client/entry"
 
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:3000",

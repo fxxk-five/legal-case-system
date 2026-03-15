@@ -25,6 +25,7 @@
 
 <script setup>
 import { onMounted, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 
 import http from '../lib/http'
 import { useAuthStore } from '../stores/auth'
@@ -35,22 +36,26 @@ const cases = ref([])
 const pendingLawyers = ref([])
 
 onMounted(async () => {
-  if (!authStore.currentUser) {
-    await authStore.fetchCurrentUser()
+  try {
+    if (!authStore.currentUser) {
+      await authStore.fetchCurrentUser()
+    }
+
+    const requests = [
+      http.get('/tenants/current'),
+      http.get('/cases'),
+    ]
+
+    if (authStore.currentUser?.is_tenant_admin || authStore.currentUser?.role === 'tenant_admin') {
+      requests.push(http.get('/users/pending'))
+    }
+
+    const [tenantResp, casesResp, pendingResp] = await Promise.all(requests)
+    tenant.value = tenantResp.data
+    cases.value = casesResp.data
+    pendingLawyers.value = pendingResp?.data || []
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '概览信息加载失败')
   }
-
-  const requests = [
-    http.get('/tenants/current'),
-    http.get('/cases'),
-  ]
-
-  if (authStore.currentUser?.is_tenant_admin || authStore.currentUser?.role === 'tenant_admin') {
-    requests.push(http.get('/users/pending'))
-  }
-
-  const [tenantResp, casesResp, pendingResp] = await Promise.all(requests)
-  tenant.value = tenantResp.data
-  cases.value = casesResp.data
-  pendingLawyers.value = pendingResp?.data || []
 })
 </script>

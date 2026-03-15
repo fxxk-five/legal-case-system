@@ -1,0 +1,46 @@
+{
+  "pages": [
+    {
+      "path": "pages/login/index",
+      "style": {
+        "navigationBarTitleText": "微信登录"
+      }
+    },
+    {
+      "path": "pages/lawyer/home",
+      "style": {
+        "navigationBarTitleText": "案件列表"
+      }
+    },
+    {
+      "path": "pages/lawyer/create-case",
+      "style": {
+        "navigationBarTitleText": "新建案件"
+      }
+    },
+    {
+      "path": "pages/lawyer/case-detail",
+      "style": {
+        "navigationBarTitleText": "案件详情"
+      }
+    },
+    {
+      "path": "pages/client/entry",
+      "style": {
+        "navigationBarTitleText": "案件邀请"
+      }
+    },
+    {
+      "path": "pages/client/case-detail",
+      "style": {
+        "navigationBarTitleText": "案件进度"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "法律案件管理系统",
+    "navigationBarBackgroundColor": "#ffffff",
+    "backgroundColor": "#f4f6f8"
+  }
+}

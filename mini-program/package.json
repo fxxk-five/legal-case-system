@@ -1,0 +1,10 @@
+{
+  "name": "legal-case-mini-program",
+  "version": "0.1.0",
+  "private": true,
+  "description": "法律案件管理系统微信小程序端（uni-app）",
+  "scripts": {
+    "dev:mp-weixin": "echo 请使用 HBuilderX 或微信开发者工具运行 uni-app 小程序项目",
+    "build:mp-weixin": "echo 请使用 HBuilderX 发行微信小程序"
+  }
+}

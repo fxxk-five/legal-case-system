@@ -19,3 +19,7 @@ class File(Base, TimestampMixin):
     tenant = relationship("Tenant", back_populates="files")
     case = relationship("Case", back_populates="files")
     uploader = relationship("User", back_populates="uploaded_files")
+
+    @property
+    def download_url(self) -> str:
+        return f"/api/v1/files/{self.id}/download"

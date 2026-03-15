@@ -17,7 +17,7 @@
       </div>
     </div>
 
-    <el-table :data="cases" stripe>
+    <el-table v-loading="loading" :data="cases" stripe empty-text="暂无案件数据">
       <el-table-column label="案号" min-width="160">
         <template #default="{ row }">
           <RouterLink :to="`/cases/${row.id}`" class="case-link">{{ row.case_number }}</RouterLink>
@@ -67,6 +67,7 @@ const cases = ref([])
 const dialogVisible = ref(false)
 const statusFilter = ref('')
 const submitting = ref(false)
+const loading = ref(false)
 
 const form = reactive({
   case_number: '',
@@ -76,12 +77,19 @@ const form = reactive({
 })
 
 async function loadCases() {
+  loading.value = true
   const params = {}
   if (statusFilter.value) {
     params.status = statusFilter.value
   }
-  const { data } = await http.get('/cases', { params })
-  cases.value = data
+  try {
+    const { data } = await http.get('/cases', { params })
+    cases.value = data
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '案件列表加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 function resetForm() {
@@ -92,6 +100,10 @@ function resetForm() {
 }
 
 async function handleCreateCase() {
+  if (!form.case_number || !form.title || !form.client_phone || !form.client_real_name) {
+    ElMessage.warning('请完整填写案件信息')
+    return
+  }
   submitting.value = true
   try {
     await http.post('/cases', form)

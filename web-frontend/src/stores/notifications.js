@@ -13,10 +13,14 @@ export const useNotificationStore = defineStore('notifications', {
   },
   actions: {
     async fetchNotifications(unreadOnly = false) {
-      const { data } = await http.get('/notifications', {
-        params: unreadOnly ? { unread_only: true } : {},
-      })
-      this.items = data
+      try {
+        const { data } = await http.get('/notifications', {
+          params: unreadOnly ? { unread_only: true } : {},
+        })
+        this.items = data
+      } catch {
+        this.items = []
+      }
     },
     async markRead(notificationId) {
       await http.patch(`/notifications/${notificationId}/read`)

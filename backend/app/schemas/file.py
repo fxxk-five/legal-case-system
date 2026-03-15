@@ -14,6 +14,7 @@ class FileRead(BaseModel):
     uploader_id: int | None
     file_name: str
     file_url: str
+    download_url: str
     file_type: str
     created_at: datetime
     uploader: UserSummary | None = None

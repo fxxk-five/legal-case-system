@@ -11,7 +11,7 @@
       </div>
     </div>
 
-    <el-table :data="lawyers" stripe>
+    <el-table v-loading="loading" :data="lawyers" stripe empty-text="暂无律师数据">
       <el-table-column prop="real_name" label="姓名" min-width="120" />
       <el-table-column prop="phone" label="手机号" min-width="150" />
       <el-table-column prop="role" label="角色" min-width="120" />
@@ -38,7 +38,7 @@
       </div>
     </div>
 
-    <el-table :data="pendingUsers" stripe>
+    <el-table v-loading="loading" :data="pendingUsers" stripe empty-text="暂无待审批律师">
       <el-table-column prop="real_name" label="姓名" min-width="120" />
       <el-table-column prop="phone" label="手机号" min-width="150" />
       <el-table-column prop="role" label="角色" min-width="120" />
@@ -95,6 +95,7 @@ const dialogVisible = ref(false)
 const inviteDialogVisible = ref(false)
 const inviteLink = ref('')
 const submitting = ref(false)
+const loading = ref(false)
 
 const form = reactive({
   real_name: '',
@@ -111,15 +112,26 @@ function resetForm() {
 }
 
 async function loadLawyers() {
-  const [lawyersResp, pendingResp] = await Promise.all([
-    http.get('/users/lawyers'),
-    http.get('/users/pending'),
-  ])
-  lawyers.value = lawyersResp.data
-  pendingUsers.value = pendingResp.data
+  loading.value = true
+  try {
+    const [lawyersResp, pendingResp] = await Promise.all([
+      http.get('/users/lawyers'),
+      http.get('/users/pending'),
+    ])
+    lawyers.value = lawyersResp.data
+    pendingUsers.value = pendingResp.data
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '律师列表加载失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 async function createLawyer() {
+  if (!form.real_name || !form.phone || !form.password) {
+    ElMessage.warning('请完整填写律师信息')
+    return
+  }
   submitting.value = true
   try {
     await http.post('/users/lawyers', form)
@@ -135,28 +147,44 @@ async function createLawyer() {
 }
 
 async function toggleStatus(user) {
-  const nextStatus = user.status === 1 ? 0 : 1
-  await http.patch(`/users/${user.id}/status`, { status: nextStatus })
-  ElMessage.success(nextStatus === 1 ? '已启用' : '已禁用')
-  await loadLawyers()
+  try {
+    const nextStatus = user.status === 1 ? 0 : 1
+    await http.patch(`/users/${user.id}/status`, { status: nextStatus })
+    ElMessage.success(nextStatus === 1 ? '已启用' : '已禁用')
+    await loadLawyers()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '状态更新失败')
+  }
 }
 
 async function approve(userId) {
-  await http.patch(`/users/${userId}/approve`)
-  ElMessage.success('审批通过')
-  await loadLawyers()
+  try {
+    await http.patch(`/users/${userId}/approve`)
+    ElMessage.success('审批通过')
+    await loadLawyers()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '审批失败')
+  }
 }
 
 async function reject(userId) {
-  await http.delete(`/users/${userId}/reject`)
-  ElMessage.success('已拒绝')
-  await loadLawyers()
+  try {
+    await http.delete(`/users/${userId}/reject`)
+    ElMessage.success('已拒绝')
+    await loadLawyers()
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '拒绝失败')
+  }
 }
 
 async function openInviteDialog() {
-  const { data } = await http.post('/users/invite-lawyer')
-  inviteLink.value = `${window.location.origin}/login?invite=${data.token}`
-  inviteDialogVisible.value = true
+  try {
+    const { data } = await http.post('/users/invite-lawyer')
+    inviteLink.value = `${window.location.origin}/login?invite=${data.token}`
+    inviteDialogVisible.value = true
+  } catch (error) {
+    ElMessage.error(error?.response?.data?.detail || '生成邀请链接失败')
+  }
 }
 
 onMounted(loadLawyers)
