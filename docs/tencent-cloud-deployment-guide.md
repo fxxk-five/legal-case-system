@@ -17,8 +17,8 @@
 当前项目最适合使用这套架构：
 
 - 腾讯云 `CVM`：部署服务器
-- Docker Compose：运行整个项目
-- Nginx：统一入口、反向代理、HTTPS
+- Docker Compose：运行整套服务
+- Nginx：统一入口、反向代理、HTTPS 证书接入
 - PostgreSQL：数据库
 - Redis：缓存和后续任务支持
 - 域名解析：DNSPod / 腾讯云解析
@@ -29,7 +29,7 @@
 - `https://你的域名`
   - Web 前端
 - `https://你的域名/api/...`
-  - FastAPI 后端
+  - 后端接口服务
 
 ## 三、你需要提前准备的内容
 
@@ -121,7 +121,7 @@
 ssh root@你的服务器公网IP
 ```
 
-### 第 2 步：安装 Docker
+### 第 2 步：安装容器环境
 
 你要做的事：
 
@@ -130,7 +130,7 @@ ssh root@你的服务器公网IP
 - Docker
 - Docker Compose
 
-如果你不熟，我后续可以专门给你再写一份“Ubuntu 安装 Docker 教程”。
+如果你不熟，我后续可以再专门给你写一份“Ubuntu 安装 Docker 教程”。
 
 ### 第 3 步：上传项目代码
 
@@ -190,7 +190,7 @@ WECHAT_MINIAPP_CLIENT_ENTRY_PAGE=pages/client/entry
 - 把 `WECHAT_MINIAPP_MOCK_LOGIN` 改成 `false`
 - 填入真实 `AppID` 和 `AppSecret`
 
-## 七、启动线上 Docker 环境
+## 七、启动线上容器环境
 
 ### 第 1 步：启动容器
 
@@ -293,7 +293,7 @@ https://你的域名.com
 
 - [ ] 能打开 `https://你的域名`
 - [ ] 能打开 `https://你的域名/api/v1/health`
-- [ ] 能打开 `https://你的域名/docs` 或 Swagger 入口
+- [ ] 能打开 `https://你的域名/docs` 或后端接口文档入口
 
 ### 3. Web 端验证
 
@@ -318,7 +318,7 @@ https://你的域名.com
 - 默认管理员密码
 - 默认数据库密码
 - 默认 `SECRET_KEY`
-- mock 微信登录
+- 模拟微信登录
 - 演示账号和演示数据
 
 ## 十二、常见问题

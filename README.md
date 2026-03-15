@@ -19,10 +19,10 @@
 
 ### 已经完成的部分
 
-- 后端基础骨架已经可运行：FastAPI + PostgreSQL + Alembic
+- 后端基础骨架已经可运行：FastAPI 后端服务 + PostgreSQL 数据库 + Alembic 迁移
 - 已有基础认证、案件管理、文件记录、通知、统计接口
 - Web 端已经能完成登录、案件列表、案件详情、文件查看、律师管理、机构设置等演示流程
-- 小程序已经能完成 mock 微信登录、绑定手机号、进入案件、上传材料、与 Web 查看同一案件文件的联动演示
+- 小程序已经能完成“模拟微信登录”、绑定手机号、进入案件、上传材料，并与 Web 端查看同一案件文件
 - Docker 本地演示环境已经基本打通
 
 ### 还没有完成的关键部分
@@ -86,11 +86,11 @@
 
 ## 当前仓库结构
 
-- `backend/`：FastAPI 后端服务、数据库模型、接口、业务服务、脚本
+- `backend/`：后端服务、数据库模型、接口、业务服务、脚本
 - `web-frontend/`：Vue 3 律师 Web 端和机构管理员端
 - `mini-program/`：uni-app 微信小程序
 - `docs/`：中文开发、联调、部署、验收文档
-- `scripts/`：环境检测、Docker 冒烟、演示辅助脚本
+- `scripts/`：环境检测、本地容器冒烟、演示辅助脚本
 - `deploy/`：部署相关配置
 
 更详细说明见：
@@ -210,11 +210,11 @@
 - 保持 PostgreSQL 可用
 - 保持 Docker Desktop 可用
 - 保持 HBuilderX 和微信开发者工具可用
-- 保持 GitHub 仓库可推送
+- 保持 GitHub 仓库可正常推送
 
 ### 账号与资源
 
-- 你后面需要准备真实小程序 AppID / AppSecret
+- 你后面需要准备真实小程序 `AppID / AppSecret`
 - 你后面需要准备微信支付商户号
 - 你后面需要准备腾讯云服务器、域名、对象存储
 
@@ -226,6 +226,7 @@
 - [本地联调指南](/d:/code/law/legal-case-system/docs/local-demo-guide.md)
 - [小程序联动演示说明](/d:/code/law/legal-case-system/docs/mini-program-demo-guide.md)
 - [腾讯云上线操作手册](/d:/code/law/legal-case-system/docs/tencent-cloud-deployment-guide.md)
+- [最终中文验收清单](/d:/code/law/legal-case-system/docs/final-acceptance-checklist.md)
 
 ## 当前默认演示入口
 
@@ -234,13 +235,13 @@
 - 地址：`http://localhost`
 - 默认管理员：`13800000000 / admin123456`
 
-### 后端 Swagger
+### 后端接口文档
 
 - 地址：`http://localhost:8000/docs`
 
 ### 小程序
 
-- 当前建议继续用 mock 微信登录联调
+- 当前建议继续用模拟微信登录联调
 - 当前更适合做演示，不适合直接当正式上线版
 
 ### 当前文件访问策略

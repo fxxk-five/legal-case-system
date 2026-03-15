@@ -39,7 +39,7 @@ docker compose exec backend python init_db.py
 
 ## 访问地址
 
-- Nginx 统一入口：`http://localhost`
+- 统一入口地址：`http://localhost`
 - 后端直连：`http://localhost:8000`
 - 前端直连：`http://localhost:8080`
 
@@ -67,7 +67,7 @@ docker compose exec backend python init_db.py
 
 - Node 镜像是否成功拉取
 - `npm install` 是否完成
-- Docker 构建阶段是否被代理或权限问题中断
+- 容器构建阶段是否被代理、权限或网络问题中断
 
 ### 3. Docker 提示无法读取 `C:\Users\\你的用户名\\.docker\\config.json`
 

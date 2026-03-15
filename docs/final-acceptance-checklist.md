@@ -1,100 +1,142 @@
-# 最终验收清单
+# 最终中文验收清单
 
-本文档用于你在本地演示阶段逐项确认系统是否达到可交付演示状态。
+本文档用于你在“本地可演示版”阶段做最终验收。  
+建议你按 `Web -> 小程序 -> Docker` 的顺序逐项打勾，不要跳着验。
 
 ## 一、Web 端验收
 
-### 登录与基础信息
+### 1. 登录与首页
 
-- [ ] 能打开 `http://localhost` 或本地 Web 开发地址
+- [ ] 能打开 `http://localhost` 或 `http://localhost:8080`
 - [ ] 能使用管理员账号 `13800000000 / admin123456` 登录
-- [ ] 登录后能看到概览页、案件列表、律师管理、机构设置
-- [ ] 右上角通知按钮可以展开并显示通知内容
+- [ ] 登录后顶部显示的是中文角色，不再出现 `tenant_admin`、`lawyer`、`client`
+- [ ] 登录后能看到概览、案件列表、管理面板、律师管理、机构设置
+- [ ] 右上角通知按钮可以展开，通知内容能正常显示
 
-### 案件与文件
+### 2. 案件与文件
 
-- [ ] 能在案件列表中看到演示案件
+- [ ] 案件列表页能看到演示案件
+- [ ] 案件列表页状态显示为中文，不再出现 `new / processing / done`
 - [ ] 能打开案件详情页
 - [ ] 案件详情页能显示案件时间线
-- [ ] 能上传文件
-- [ ] 能下载文件
-- [ ] 能点击“预览”并在浏览器中打开文件
-- [ ] 能生成当事人邀请路径并复制
+- [ ] 案件详情页能上传文件
+- [ ] 案件详情页能预览文件
+- [ ] 案件详情页能下载文件
+- [ ] 能生成当事人邀请路径
+- [ ] 点击复制后有明确中文提示
 
-### 管理功能
+### 3. 管理功能
 
 - [ ] 管理面板能显示律师数、案件数、待审批律师数
-- [ ] 律师管理页能看到演示律师
-- [ ] 机构设置页能正常打开且不报错
+- [ ] 律师管理页角色显示为中文
+- [ ] 律师管理页能生成邀请链接
+- [ ] 邀请弹窗说明是中文，普通用户能看懂
+- [ ] 机构设置页能正常打开
+- [ ] 机构类型和机构状态显示为中文
 
 ## 二、小程序端验收
 
-### 登录与进入案件
+### 1. 运行前准备
 
-- [ ] 已在 `manifest.json` 中填入自己的小程序 `appid`
+- [ ] 已在 `mini-program/manifest.json` 中填入自己的小程序 `appid`
 - [ ] 已用 HBuilderX 打开 `mini-program`
-- [ ] 已在微信开发者工具中成功运行项目
-- [ ] 小程序能正常进入登录页
-- [ ] mock 微信登录后能完成手机号绑定
-- [ ] 当事人通过邀请页进入后能看到自己的案件
+- [ ] 已成功运行到微信开发者工具
+- [ ] 小程序首页、登录页、案件页不白屏
 
-### 案件与文件
+### 2. 登录与进入案件
 
-- [ ] 律师端能看到案件列表
-- [ ] 律师端能打开案件详情页
-- [ ] 律师端能看到案件时间线
-- [ ] 律师端能看到文件列表
-- [ ] 律师端能预览文件
-- [ ] 律师端能下载文件
-- [ ] 当事人端能看到案件时间线
-- [ ] 当事人端能上传文件
-- [ ] 当事人端能预览文件
-- [ ] 当事人端能下载文件
+- [ ] 登录页所有提示都是中文
+- [ ] 登录页不再出现 `openid` 这类技术术语
+- [ ] 模拟微信登录后能进入绑定流程
+- [ ] 绑定手机号时，手机号、密码、姓名、租户编码都有中文限制提示
+- [ ] 当事人通过邀请入口进入后，能看到对应案件
+
+### 3. 律师端小程序
+
+- [ ] 律师首页能看到案件列表
+- [ ] 律师首页案件状态显示为中文
+- [ ] 律师案件详情页能看到时间线
+- [ ] 律师案件详情页能看到文件列表
+- [ ] 律师案件详情页能生成邀请路径
+- [ ] 邀请路径区域说明是中文，普通用户能看懂
+- [ ] 律师案件详情页能预览文件
+- [ ] 律师案件详情页能下载文件
+
+### 4. 当事人端小程序
+
+- [ ] 当事人案件详情页能看到案件时间线
+- [ ] 当事人案件详情页状态显示为中文
+- [ ] 当事人案件详情页能上传材料
+- [ ] 当事人案件详情页能预览材料
+- [ ] 当事人案件详情页能下载材料
+- [ ] 上传失败、下载失败、预览失败时有明确中文提示
 
 ## 三、Docker 验收
 
-### 服务状态
+### 1. 服务状态
 
-- [ ] `docker compose ps` 能看到 5 个服务都处于 `Up`
-- [ ] `backend` 正常运行在 `8000`
-- [ ] `web-frontend` 正常运行在 `8080`
-- [ ] `nginx` 正常运行在 `80`
-- [ ] `postgres` 和 `redis` 正常运行
+- [ ] 执行 `docker compose ps` 后，`backend`、`postgres`、`redis`、`web-frontend`、`nginx` 都是运行状态
+- [ ] 后端服务监听 `8000`
+- [ ] 前端服务监听 `8080`
+- [ ] Nginx 统一入口监听 `80`
+- [ ] PostgreSQL 和 Redis 正常运行
 
-### 数据与接口
+### 2. 数据初始化
 
 - [ ] 已执行 `docker compose exec backend python init_db.py`
-- [ ] 已执行演示数据脚本
-- [ ] 已执行 Docker 冒烟脚本
-- [ ] `http://localhost:8000/docs` 可以打开
-- [ ] `http://localhost` 可以打开
+- [ ] 已执行 `docker compose exec backend python -m app.scripts.generate_demo_data`
+- [ ] 初始化后能看到默认管理员账号和演示案件
 
-## 四、推荐验证命令
+### 3. 联通验证
 
-### 初始化基础数据
+- [ ] `http://localhost` 能打开
+- [ ] `http://localhost:8000/docs` 能打开
+- [ ] 已执行 `powershell -ExecutionPolicy Bypass -File .\scripts\docker-smoke-test.ps1`
+- [ ] 冒烟脚本执行后无关键报错
+
+## 四、联动最终验收
+
+这一段最重要，必须整条链路都通过，才算真正可演示。
+
+- [ ] Web 端登录管理员账号
+- [ ] Web 端进入案件详情并生成当事人邀请路径
+- [ ] 小程序端通过邀请路径进入对应案件
+- [ ] 当事人在小程序上传一份材料
+- [ ] 回到 Web 刷新后能看到同一份材料
+- [ ] Web 与小程序看到的是同一案件、同一文件、同一时间线数据
+
+## 五、你自己必须完成的事
+
+- [ ] 在 [backend/.env](/D:/code/law/legal-case-system/backend/.env) 中确认数据库密码、密钥是你自己的配置
+- [ ] 在 [mini-program/manifest.json](/D:/code/law/legal-case-system/mini-program/manifest.json) 中填写你自己的小程序 `appid`
+- [ ] 在微信开发者工具里手动验证页面跳转、文件预览、文件下载
+- [ ] 在浏览器中允许文件预览弹窗
+- [ ] 如果 Docker Desktop 重启后服务没起来，重新执行 `docker compose up -d`
+- [ ] 如果要清空数据重来，执行 `docker compose down -v`
+
+## 六、推荐验收命令
+
+### 1. 初始化数据库
 
 ```powershell
 cd D:\code\law\legal-case-system
 docker compose exec backend python init_db.py
 ```
 
-### 初始化演示数据
+### 2. 初始化演示数据
 
 ```powershell
 docker compose exec backend python -m app.scripts.generate_demo_data
 ```
 
-### Docker 冒烟验证
+### 3. Docker 冒烟验证
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\docker-smoke-test.ps1
 ```
 
-## 五、你需要自己做的事
+### 4. 多租户主链路验证
 
-- [ ] 在 [backend/.env](/D:/code/law/legal-case-system/backend/.env) 中确认数据库密码是你自己的
-- [ ] 在 [mini-program/manifest.json](/D:/code/law/legal-case-system/mini-program/manifest.json) 中填写自己的小程序 `appid`
-- [ ] 在微信开发者工具里手动验证文件预览、文件下载、授权和页面跳转
-- [ ] 在浏览器中允许 Web 文件预览弹窗
-- [ ] 如果 Docker Desktop 重启后服务消失，重新执行 `docker compose up -d`
-- [ ] 如果你要清空数据重来，执行 `docker compose down -v`
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\multi-tenant-smoke-test.ps1
+```

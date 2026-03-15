@@ -62,9 +62,9 @@ npm run dev
 http://127.0.0.1:8000/api/v1
 ```
 
-## 四、mock 微信登录说明
+## 四、模拟微信登录说明
 
-当前后端支持 mock 微信登录，目的是本地先把业务流程跑通。
+当前后端支持“模拟微信登录”，目的是先把本地业务流程跑通。
 
 后端配置：
 
@@ -76,7 +76,7 @@ WECHAT_MINIAPP_MOCK_LOGIN=true
 
 - 小程序调用 `uni.login()` 拿到 `code`
 - 后端不会真实请求微信接口
-- 后端会根据 `code` 生成一个 mock `openid`
+- 后端会根据 `code` 生成一个模拟的微信身份标识
 - 这样可以先完成绑定、进入案件、上传文件等流程
 
 ## 五、本地演示推荐顺序
@@ -91,7 +91,7 @@ WECHAT_MINIAPP_MOCK_LOGIN=true
 ### 当事人侧
 
 1. 在小程序中进入登录页或邀请页
-2. 走微信 mock 登录
+2. 走微信模拟登录
 3. 输入手机号和姓名完成绑定
 4. 查看案件详情
 5. 上传一份文件
@@ -118,7 +118,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\docker-smoke-test.ps1
 
 - 统一入口：`http://localhost`
 - Web：`http://localhost:8080`
-- Swagger：`http://localhost:8000/docs`
+- 后端接口文档：`http://localhost:8000/docs`
 
 ## 七、你必须自己做的事
 
@@ -158,4 +158,4 @@ powershell -ExecutionPolicy Bypass -File .\scripts\docker-smoke-test.ps1
 
 ### 4. 微信真机联调失败
 
-当前阶段默认不以真机上线能力为目标，先用 mock 跑通本地演示。真机能力后续再接真实 `AppID/AppSecret`。
+当前阶段默认不以真机上线能力为目标，先用模拟微信登录跑通本地演示。真机能力后续再接真实 `AppID/AppSecret`。

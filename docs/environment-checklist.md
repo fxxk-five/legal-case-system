@@ -21,7 +21,7 @@
 - `POSTGRES_PORT=5432`
 - `WECHAT_MINIAPP_MOCK_LOGIN=true`
 
-### Docker 部署推荐值
+### 容器部署推荐值
 
 - `POSTGRES_SERVER=postgres`
 - `POSTGRES_PORT=5432`
@@ -51,7 +51,7 @@
 VITE_API_BASE_URL=http://127.0.0.1:8000/api/v1
 ```
 
-Docker/Nginx 反向代理下建议：
+容器 + Nginx 反向代理场景建议：
 
 ```env
 VITE_API_BASE_URL=/api/v1
