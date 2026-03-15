@@ -26,10 +26,14 @@
       <el-table-column prop="title" label="标题" min-width="220" />
       <el-table-column label="当事人" min-width="140">
         <template #default="{ row }">
-          {{ row.client?.real_name || '-' }}
+          {{ formatText(row.client?.real_name) }}
         </template>
       </el-table-column>
-      <el-table-column prop="status" label="状态" width="120" />
+      <el-table-column label="状态" width="120">
+        <template #default="{ row }">
+          {{ formatCaseStatus(row.status) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="created_at" label="创建时间" min-width="180" />
     </el-table>
 
@@ -65,6 +69,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { RouterLink } from 'vue-router'
 
+import { formatCaseStatus, formatText } from '../lib/displayText'
 import http from '../lib/http'
 import { extractFriendlyError, validateName, validatePhone, validateWorkspaceName } from '../lib/formMessages'
 

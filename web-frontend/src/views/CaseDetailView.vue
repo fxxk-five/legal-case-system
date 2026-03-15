@@ -20,17 +20,17 @@
       <article class="summary-card">
         <p>案号</p>
         <h2>{{ caseDetail.case_number }}</h2>
-        <span>状态：{{ caseDetail.status }}</span>
+        <span>状态：{{ formatCaseStatus(caseDetail.status) }}</span>
       </article>
       <article class="summary-card">
         <p>当事人</p>
-        <h2>{{ caseDetail.client?.real_name || '-' }}</h2>
-        <span>{{ caseDetail.client?.phone || '-' }}</span>
+        <h2>{{ formatText(caseDetail.client?.real_name) }}</h2>
+        <span>{{ formatText(caseDetail.client?.phone) }}</span>
       </article>
       <article class="summary-card">
         <p>负责律师</p>
-        <h2>{{ caseDetail.assigned_lawyer?.real_name || '-' }}</h2>
-        <span>{{ caseDetail.assigned_lawyer?.phone || '-' }}</span>
+        <h2>{{ formatText(caseDetail.assigned_lawyer?.real_name) }}</h2>
+        <span>{{ formatText(caseDetail.assigned_lawyer?.phone) }}</span>
       </article>
     </div>
 
@@ -90,7 +90,7 @@
         <el-table-column prop="file_type" label="类型" min-width="180" />
         <el-table-column label="上传人" min-width="140">
           <template #default="{ row }">
-            {{ row.uploader?.real_name || '-' }}
+            {{ formatText(row.uploader?.real_name) }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="160">
@@ -109,6 +109,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
+import { formatCaseStatus, formatText } from '../lib/displayText'
 import http from '../lib/http'
 import { extractFriendlyError } from '../lib/formMessages'
 

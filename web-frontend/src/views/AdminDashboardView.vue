@@ -12,7 +12,7 @@
       <article class="summary-card accent">
         <p>律师总数</p>
         <h2>{{ stats.lawyer_count }}</h2>
-        <span>当前租户</span>
+        <span>当前机构已开通账号</span>
       </article>
       <article class="summary-card">
         <p>案件总数</p>
@@ -22,7 +22,7 @@
       <article class="summary-card">
         <p>待审批律师</p>
         <h2>{{ stats.pending_lawyer_count }}</h2>
-        <span>需要管理员处理</span>
+        <span>等待管理员审核</span>
       </article>
     </div>
   </section>

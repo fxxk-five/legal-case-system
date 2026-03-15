@@ -3,8 +3,8 @@
     <view v-if="caseInfo" class="card">
       <text class="section-title">{{ caseInfo.title }}</text>
       <text class="meta">案号：{{ caseInfo.case_number }}</text>
-      <text class="meta">当前状态：{{ caseInfo.status }}</text>
-      <text class="meta">负责律师：{{ caseInfo.assigned_lawyer ? caseInfo.assigned_lawyer.real_name : '未指派' }}</text>
+      <text class="meta">当前状态：{{ formatCaseStatus(caseInfo.status) }}</text>
+      <text class="meta">负责律师：{{ formatText(caseInfo.assigned_lawyer ? caseInfo.assigned_lawyer.real_name : '', '未指派') }}</text>
     </view>
 
     <view class="section-title">案件时间线</view>
@@ -39,6 +39,7 @@
 </template>
 
 <script>
+import { formatCaseStatus, formatText } from "../../common/display";
 import { get, uploadByPolicy } from "../../common/http";
 import { downloadCaseFile, previewCaseFile } from "../../common/file";
 import { requireLogin } from "../../common/session";
@@ -64,6 +65,8 @@ export default {
     }
   },
   methods: {
+    formatCaseStatus,
+    formatText,
     async loadData() {
       const caseList = await get("/cases");
       if (!caseList.length) {

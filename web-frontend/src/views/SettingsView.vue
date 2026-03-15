@@ -17,10 +17,10 @@
         <div class="field-tip">机构名称最多 100 个字符，建议与正式名称保持一致。</div>
       </el-form-item>
       <el-form-item label="机构类型">
-        <el-input :model-value="tenant.type" disabled />
+        <el-input :model-value="formatTenantType(tenant.type)" disabled />
       </el-form-item>
       <el-form-item label="状态">
-        <el-input :model-value="tenant.status" disabled />
+        <el-input :model-value="formatTenantStatus(tenant.status)" disabled />
       </el-form-item>
       <el-form-item>
         <el-button type="primary" :loading="submitting" @click="saveTenant">保存修改</el-button>
@@ -33,6 +33,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
+import { formatTenantStatus, formatTenantType } from '../lib/displayText'
 import http from '../lib/http'
 import { extractFriendlyError, validateWorkspaceName } from '../lib/formMessages'
 

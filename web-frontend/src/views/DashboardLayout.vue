@@ -51,14 +51,14 @@
                   <p>{{ item.content }}</p>
                 </div>
                 <el-button v-if="!item.is_read" link type="primary" @click="markRead(item.id)">
-                  已读
+                  标记已读
                 </el-button>
               </div>
             </div>
           </el-popover>
 
-          <span class="header-role">{{ authStore.currentUser?.role || '-' }}</span>
-          <el-button plain @click="handleLogout">退出</el-button>
+          <span class="header-role">{{ formatRole(authStore.currentUser?.role) }}</span>
+          <el-button plain @click="handleLogout">退出登录</el-button>
         </div>
       </header>
 
@@ -73,6 +73,7 @@
 import { computed, onMounted } from 'vue'
 import { RouterLink, RouterView, useRouter } from 'vue-router'
 
+import { formatRole } from '../lib/displayText'
 import { useAuthStore } from '../stores/auth'
 import { useNotificationStore } from '../stores/notifications'
 

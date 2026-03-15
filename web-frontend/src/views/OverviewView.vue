@@ -1,19 +1,19 @@
 <template>
   <div class="panel-grid">
     <article class="summary-card accent">
-      <p>当前租户</p>
-      <h2>{{ tenant?.name || '未加载' }}</h2>
-      <span>{{ tenant?.tenant_code || 'N/A' }}</span>
+      <p>当前机构</p>
+      <h2>{{ formatText(tenant?.name, '未加载') }}</h2>
+      <span>{{ formatText(tenant?.tenant_code, '未分配机构编码') }}</span>
     </article>
     <article class="summary-card">
       <p>当前用户</p>
-      <h2>{{ authStore.currentUser?.real_name || '-' }}</h2>
-      <span>{{ authStore.currentUser?.phone || '-' }}</span>
+      <h2>{{ formatText(authStore.currentUser?.real_name) }}</h2>
+      <span>{{ formatText(authStore.currentUser?.phone) }}</span>
     </article>
     <article class="summary-card">
       <p>案件总数</p>
       <h2>{{ cases.length }}</h2>
-      <span>来自当前租户</span>
+      <span>来自当前机构</span>
     </article>
     <article class="summary-card">
       <p>待审批律师</p>
@@ -27,6 +27,7 @@
 import { onMounted, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
+import { formatText } from '../lib/displayText'
 import http from '../lib/http'
 import { useAuthStore } from '../stores/auth'
 import { extractFriendlyError } from '../lib/formMessages'

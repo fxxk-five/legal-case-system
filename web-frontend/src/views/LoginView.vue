@@ -2,7 +2,7 @@
   <section class="login-page">
     <div class="login-panel">
       <div class="login-copy">
-        <p class="eyebrow">LEGAL CASE SYSTEM</p>
+        <p class="eyebrow">法律案件系统</p>
         <h1>律所案件管理后台</h1>
         <p>当前已切换到多租户主流程。你可以登录现有租户，也可以直接创建个人空间、创建律所，或者申请加入机构。</p>
       </div>

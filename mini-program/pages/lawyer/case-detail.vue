@@ -3,11 +3,12 @@
     <view class="card" v-if="caseInfo">
       <text class="section-title">{{ caseInfo.title }}</text>
       <text class="meta">案号：{{ caseInfo.case_number }}</text>
-      <text class="meta">状态：{{ caseInfo.status }}</text>
-      <text class="meta">当事人：{{ caseInfo.client ? caseInfo.client.real_name : '未关联' }}</text>
+      <text class="meta">状态：{{ formatCaseStatus(caseInfo.status) }}</text>
+      <text class="meta">当事人：{{ formatText(caseInfo.client ? caseInfo.client.real_name : '', '未关联') }}</text>
       <button class="primary-btn" @click="loadInvite">生成当事人邀请</button>
       <view v-if="invitePath" class="invite-box">
-        <text class="invite-label">小程序路径</text>
+        <text class="invite-label">邀请路径</text>
+        <text class="meta invite-tip">把这条路径发给当事人，对方进入小程序后可直接绑定到当前案件。</text>
         <text class="invite-path">{{ invitePath }}</text>
         <button class="ghost-btn" @click="copyInvitePath">复制路径</button>
       </view>
@@ -39,6 +40,7 @@
 </template>
 
 <script>
+import { formatCaseStatus, formatText } from "../../common/display";
 import { get } from "../../common/http";
 import { downloadCaseFile, previewCaseFile } from "../../common/file";
 import { requireLogin } from "../../common/session";
@@ -66,6 +68,8 @@ export default {
     }
   },
   methods: {
+    formatCaseStatus,
+    formatText,
     async loadCaseDetail() {
       this.caseInfo = await get(`/cases/${this.caseId}`);
       this.timeline = this.caseInfo.timeline || [];
@@ -82,7 +86,7 @@ export default {
     copyInvitePath() {
       uni.setClipboardData({
         data: this.invitePath,
-        success: () => uni.showToast({ title: "已复制", icon: "success" }),
+        success: () => uni.showToast({ title: "邀请路径已复制", icon: "success" }),
       });
     },
     formatTime(value) {
@@ -115,6 +119,11 @@ export default {
 .invite-path {
   display: block;
   margin-top: 12rpx;
+}
+
+.invite-tip {
+  color: #475569;
+  line-height: 1.6;
 }
 
 .file-card {

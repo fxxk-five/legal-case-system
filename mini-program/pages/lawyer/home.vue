@@ -2,7 +2,7 @@
   <view class="page-container">
     <view class="card header-card">
       <text class="header-title">律师工作台</text>
-      <text class="header-desc">展示当前租户案件列表，后续可继续补筛选、拖拽、通知提醒。</text>
+      <text class="header-desc">展示当前机构案件列表，后续可继续补筛选、拖拽和通知提醒。</text>
       <button class="primary-btn" @click="goCreateCase">新建案件</button>
     </view>
 
@@ -18,13 +18,14 @@
     >
       <text class="case-number">{{ item.case_number }}</text>
       <text class="case-title">{{ item.title }}</text>
-      <text class="case-meta">状态：{{ item.status }}</text>
-      <text class="case-meta">当事人：{{ item.client ? item.client.real_name : '未关联' }}</text>
+      <text class="case-meta">状态：{{ formatCaseStatus(item.status) }}</text>
+      <text class="case-meta">当事人：{{ formatText(item.client ? item.client.real_name : '', '未关联') }}</text>
     </view>
   </view>
 </template>
 
 <script>
+import { formatCaseStatus, formatText } from "../../common/display";
 import { get } from "../../common/http";
 import { requireLogin } from "../../common/session";
 import { friendlyError, showFormError } from "../../common/form";
@@ -42,6 +43,8 @@ export default {
     this.loadCases();
   },
   methods: {
+    formatCaseStatus,
+    formatText,
     async loadCases() {
       try {
         this.cases = await get("/cases");

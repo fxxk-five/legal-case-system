@@ -6,7 +6,7 @@
         <h2>律师管理</h2>
       </div>
       <div class="toolbar">
-        <el-button @click="openInviteDialog">邀请律师</el-button>
+        <el-button @click="openInviteDialog">生成邀请链接</el-button>
         <el-button type="primary" @click="dialogVisible = true">新增律师</el-button>
       </div>
     </div>
@@ -14,18 +14,22 @@
     <el-table v-loading="loading" :data="lawyers" stripe empty-text="暂无律师数据">
       <el-table-column prop="real_name" label="姓名" min-width="120" />
       <el-table-column prop="phone" label="手机号" min-width="150" />
-      <el-table-column prop="role" label="角色" min-width="120" />
+      <el-table-column label="角色" min-width="120">
+        <template #default="{ row }">
+          {{ formatRole(row.role) }}
+        </template>
+      </el-table-column>
       <el-table-column label="状态" width="120">
         <template #default="{ row }">
           <el-tag :type="row.status === 1 ? 'success' : 'warning'">
-            {{ row.status === 1 ? '启用' : '停用' }}
+            {{ row.status === 1 ? '已启用' : '已停用' }}
           </el-tag>
         </template>
       </el-table-column>
       <el-table-column label="操作" min-width="220">
         <template #default="{ row }">
           <el-button link type="primary" @click="toggleStatus(row)">
-            {{ row.status === 1 ? '禁用' : '启用' }}
+            {{ row.status === 1 ? '停用账号' : '启用账号' }}
           </el-button>
         </template>
       </el-table-column>
@@ -41,11 +45,15 @@
     <el-table v-loading="loading" :data="pendingUsers" stripe empty-text="暂无待审批律师">
       <el-table-column prop="real_name" label="姓名" min-width="120" />
       <el-table-column prop="phone" label="手机号" min-width="150" />
-      <el-table-column prop="role" label="角色" min-width="120" />
+      <el-table-column label="角色" min-width="120">
+        <template #default="{ row }">
+          {{ formatRole(row.role) }}
+        </template>
+      </el-table-column>
       <el-table-column label="操作" min-width="220">
         <template #default="{ row }">
           <el-button link type="primary" @click="approve(row.id)">审批通过</el-button>
-          <el-button link type="danger" @click="reject(row.id)">拒绝</el-button>
+          <el-button link type="danger" @click="reject(row.id)">拒绝申请</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -67,7 +75,7 @@
         <el-form-item label="角色">
           <el-select v-model="form.role">
             <el-option label="律师" value="lawyer" />
-            <el-option label="管理员" value="tenant_admin" />
+            <el-option label="机构管理员" value="tenant_admin" />
           </el-select>
         </el-form-item>
       </el-form>
@@ -78,9 +86,13 @@
     </el-dialog>
 
     <el-dialog v-model="inviteDialogVisible" title="律师邀请链接" width="560px">
+      <div class="field-tip invite-tip">
+        把下面的链接发给要加入机构的律师，对方打开后可直接进入加入流程。
+      </div>
       <el-input :model-value="inviteLink" readonly />
       <template #footer>
-        <el-button @click="inviteDialogVisible = false">关闭</el-button>
+        <el-button @click="copyInviteLink">复制链接</el-button>
+        <el-button type="primary" @click="inviteDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </section>
@@ -90,6 +102,7 @@
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
+import { formatRole } from '../lib/displayText'
 import http from '../lib/http'
 import { extractFriendlyError, validateName, validatePassword, validatePhone } from '../lib/formMessages'
 
@@ -159,7 +172,7 @@ async function toggleStatus(user) {
   try {
     const nextStatus = user.status === 1 ? 0 : 1
     await http.patch(`/users/${user.id}/status`, { status: nextStatus })
-    ElMessage.success(nextStatus === 1 ? '已启用' : '已禁用')
+    ElMessage.success(nextStatus === 1 ? '账号已启用' : '账号已停用')
     await loadLawyers()
   } catch (error) {
     ElMessage.error(extractFriendlyError(error, '状态更新失败'))
@@ -191,8 +204,18 @@ async function openInviteDialog() {
     const { data } = await http.post('/users/invite-lawyer')
     inviteLink.value = `${window.location.origin}/login?invite=${data.token}`
     inviteDialogVisible.value = true
+    ElMessage.success('邀请链接已生成')
   } catch (error) {
     ElMessage.error(extractFriendlyError(error, '生成邀请链接失败'))
+  }
+}
+
+async function copyInviteLink() {
+  try {
+    await navigator.clipboard.writeText(inviteLink.value)
+    ElMessage.success('邀请链接已复制')
+  } catch {
+    ElMessage.warning('当前浏览器不支持自动复制，请手动复制链接')
   }
 }
 
@@ -205,5 +228,9 @@ onMounted(loadLawyers)
   font-size: 12px;
   line-height: 1.5;
   color: #6b7280;
+}
+
+.invite-tip {
+  margin-bottom: 12px;
 }
 </style>

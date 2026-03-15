@@ -73,6 +73,21 @@ export function friendlyError(error, fallback = "操作失败") {
   if (typeof detail === "string" && detail.trim()) {
     return detail;
   }
+  if (error && typeof error.errMsg === "string" && error.errMsg.trim()) {
+    if (error.errMsg.includes("request:fail")) {
+      return "网络连接失败，请确认后端服务已启动并重试";
+    }
+    if (error.errMsg.includes("uploadFile:fail")) {
+      return "文件上传失败，请稍后重试";
+    }
+    if (error.errMsg.includes("downloadFile:fail")) {
+      return "文件下载失败，请稍后重试";
+    }
+    if (error.errMsg.includes("openDocument:fail")) {
+      return "文件预览失败，请确认文件格式是否受支持";
+    }
+    return error.errMsg;
+  }
   if (typeof error === "string" && error.trim()) {
     return error;
   }

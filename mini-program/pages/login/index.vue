@@ -2,7 +2,7 @@
   <view class="page-container">
     <view class="card hero-card">
       <text class="hero-title">微信小程序登录</text>
-      <text class="hero-desc">先通过微信身份换取 openid，再决定是绑定已有律师账号还是进入当事人流程。</text>
+      <text class="hero-desc">先完成微信身份校验，再决定是绑定已有律师账号还是进入当事人流程。</text>
       <button class="primary-btn" :loading="loggingIn" @click="handleWechatLogin">微信登录</button>
     </view>
 
@@ -64,7 +64,7 @@ export default {
   computed: {
     currentRoleLabel() {
       const target = this.roleOptions.find((item) => item.value === this.form.role);
-      return target ? `当前角色：${target.label}` : "请选择角色";
+      return target ? `当前身份：${target.label}` : "请选择身份";
     },
   },
   onLoad(options) {
