@@ -54,12 +54,15 @@
       <el-form :model="form" label-width="88px">
         <el-form-item label="姓名">
           <el-input v-model="form.real_name" />
+          <div class="field-tip">请输入律师真实姓名，最多 100 个字符。</div>
         </el-form-item>
         <el-form-item label="手机号">
           <el-input v-model="form.phone" />
+          <div class="field-tip">请输入 6 到 20 位数字。</div>
         </el-form-item>
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password />
+          <div class="field-tip">密码至少 6 位，建议使用更复杂的组合。</div>
         </el-form-item>
         <el-form-item label="角色">
           <el-select v-model="form.role">
@@ -88,6 +91,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import http from '../lib/http'
+import { extractFriendlyError, validateName, validatePassword, validatePhone } from '../lib/formMessages'
 
 const lawyers = ref([])
 const pendingUsers = ref([])
@@ -121,17 +125,22 @@ async function loadLawyers() {
     lawyers.value = lawyersResp.data
     pendingUsers.value = pendingResp.data
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '律师列表加载失败')
+    ElMessage.error(extractFriendlyError(error, '律师列表加载失败'))
   } finally {
     loading.value = false
   }
 }
 
 async function createLawyer() {
-  if (!form.real_name || !form.phone || !form.password) {
-    ElMessage.warning('请完整填写律师信息')
+  const validationMessage =
+    validateName(form.real_name, '律师姓名') ||
+    validatePhone(form.phone, '手机号') ||
+    validatePassword(form.password, '密码')
+  if (validationMessage) {
+    ElMessage.warning(validationMessage)
     return
   }
+
   submitting.value = true
   try {
     await http.post('/users/lawyers', form)
@@ -140,7 +149,7 @@ async function createLawyer() {
     resetForm()
     await loadLawyers()
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '律师创建失败')
+    ElMessage.error(extractFriendlyError(error, '律师创建失败'))
   } finally {
     submitting.value = false
   }
@@ -153,17 +162,17 @@ async function toggleStatus(user) {
     ElMessage.success(nextStatus === 1 ? '已启用' : '已禁用')
     await loadLawyers()
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '状态更新失败')
+    ElMessage.error(extractFriendlyError(error, '状态更新失败'))
   }
 }
 
 async function approve(userId) {
   try {
-    await http.patch(`/users/${userId}/approve`)
+    await http.patch(`/tenants/members/${userId}/approve`)
     ElMessage.success('审批通过')
     await loadLawyers()
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '审批失败')
+    ElMessage.error(extractFriendlyError(error, '审批失败'))
   }
 }
 
@@ -173,7 +182,7 @@ async function reject(userId) {
     ElMessage.success('已拒绝')
     await loadLawyers()
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '拒绝失败')
+    ElMessage.error(extractFriendlyError(error, '拒绝失败'))
   }
 }
 
@@ -183,9 +192,18 @@ async function openInviteDialog() {
     inviteLink.value = `${window.location.origin}/login?invite=${data.token}`
     inviteDialogVisible.value = true
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '生成邀请链接失败')
+    ElMessage.error(extractFriendlyError(error, '生成邀请链接失败'))
   }
 }
 
 onMounted(loadLawyers)
 </script>
+
+<style scoped>
+.field-tip {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+</style>

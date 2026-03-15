@@ -114,6 +114,7 @@ def _ensure_file_record(
     target_dir = storage_root / f"tenant_{tenant_id}" / f"case_{case_id}"
     target_dir.mkdir(parents=True, exist_ok=True)
     target_path = target_dir / file_name
+    storage_key = Path(f"tenant_{tenant_id}") / f"case_{case_id}" / file_name
     target_path.write_text(content, encoding="utf-8")
 
     file_record = File(
@@ -121,7 +122,7 @@ def _ensure_file_record(
         case_id=case_id,
         uploader_id=uploader_id,
         file_name=file_name,
-        file_url=str(target_path.as_posix()),
+        file_url=str(storage_key.as_posix()),
         file_type=file_type,
     )
     db.add(file_record)
@@ -130,16 +131,28 @@ def _ensure_file_record(
     return file_record
 
 
-def _ensure_notification(db: Session, *, user_id: int, title: str, content: str) -> None:
+def _ensure_notification(db: Session, *, tenant_id: int, user_id: int, title: str, content: str) -> None:
     exists = (
         db.query(Notification)
-        .filter(Notification.user_id == user_id, Notification.title == title)
+        .filter(
+            Notification.tenant_id == tenant_id,
+            Notification.user_id == user_id,
+            Notification.title == title,
+        )
         .first()
     )
     if exists is not None:
         return
 
-    db.add(Notification(user_id=user_id, title=title, content=content, is_read=False))
+    db.add(
+        Notification(
+            tenant_id=tenant_id,
+            user_id=user_id,
+            title=title,
+            content=content,
+            is_read=False,
+        )
+    )
     db.commit()
 
 
@@ -244,18 +257,21 @@ def generate_demo_data(db: Session) -> None:
 
     _ensure_notification(
         db,
+        tenant_id=tenant.id,
         user_id=admin.id,
         title="演示环境已就绪",
         content="系统已自动生成演示案件、通知和文件，可直接开始演示。",
     )
     _ensure_notification(
         db,
+        tenant_id=tenant.id,
         user_id=lawyer.id,
         title="请跟进劳动争议案件",
         content="演示案件 CASE-DEMO-1001 将在 7 天后到期，请及时处理。",
     )
     _ensure_notification(
         db,
+        tenant_id=tenant.id,
         user_id=lawyer.id,
         title="合同纠纷材料已上传",
         content="当事人已上传 CASE-DEMO-1002 的证据材料，请及时查看。",

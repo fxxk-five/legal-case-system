@@ -84,3 +84,47 @@ export function upload(url, filePath, name = "upload", formData = {}) {
     });
   });
 }
+
+export function uploadByPolicy(policy, filePath) {
+  const token = getAccessToken();
+  const targetUrl = policy.upload_url.startsWith("http")
+    ? policy.upload_url
+    : `${config.apiBaseUrl.replace(/\/api\/v1$/, "")}${policy.upload_url}`;
+
+  return new Promise((resolve, reject) => {
+    uni.uploadFile({
+      url: targetUrl,
+      filePath,
+      name: policy.file_field_name || "upload",
+      formData: policy.form_fields || {},
+      header: {
+        ...(policy.headers || {}),
+        ...(token
+          ? {
+              Authorization: `Bearer ${token}`,
+            }
+          : {}),
+      },
+      success: ({ statusCode, data }) => {
+        let parsed = data;
+        try {
+          parsed = JSON.parse(data);
+        } catch {
+          parsed = { detail: data };
+        }
+
+        if (statusCode >= 200 && statusCode < 300) {
+          resolve(parsed);
+          return;
+        }
+
+        if (statusCode === 401) {
+          clearSession();
+          uni.reLaunch({ url: "/pages/login/index" });
+        }
+        reject(parsed);
+      },
+      fail: (error) => reject(error),
+    });
+  });
+}

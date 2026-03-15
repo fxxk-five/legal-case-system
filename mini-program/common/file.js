@@ -1,5 +1,6 @@
 import { config } from "./config";
 import { getAccessToken } from "./auth";
+import { get } from "./http";
 
 function buildHeaders() {
   const token = getAccessToken();
@@ -10,17 +11,19 @@ function buildHeaders() {
     : {};
 }
 
-function buildFileUrl(file) {
-  if (file.download_url?.startsWith("http")) {
-    return file.download_url;
+async function buildFileUrl(file) {
+  const access = await get(`/files/${file.id}/access-link`);
+  if (access.access_url.startsWith("http")) {
+    return access.access_url;
   }
-  return `${config.apiBaseUrl.replace(/\/api\/v1$/, "")}${file.download_url}`;
+  return `${config.apiBaseUrl.replace(/\/api\/v1$/, "")}${access.access_url}`;
 }
 
-function downloadToTemp(file) {
+async function downloadToTemp(file) {
+  const url = await buildFileUrl(file);
   return new Promise((resolve, reject) => {
     uni.downloadFile({
-      url: buildFileUrl(file),
+      url,
       header: buildHeaders(),
       success: (result) => {
         if (result.statusCode >= 200 && result.statusCode < 300) {

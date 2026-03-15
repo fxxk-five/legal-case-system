@@ -19,42 +19,44 @@
       <text class="case-number">{{ item.case_number }}</text>
       <text class="case-title">{{ item.title }}</text>
       <text class="case-meta">状态：{{ item.status }}</text>
-      <text class="case-meta">当事人：{{ item.client?.real_name || '未关联' }}</text>
+      <text class="case-meta">当事人：{{ item.client ? item.client.real_name : '未关联' }}</text>
     </view>
   </view>
 </template>
 
-<script setup>
-import { onShow } from "@dcloudio/uni-app";
-import { ref } from "vue";
-
+<script>
 import { get } from "../../common/http";
 import { requireLogin } from "../../common/session";
+import { friendlyError, showFormError } from "../../common/form";
 
-const cases = ref([]);
-
-async function loadCases() {
-  try {
-    cases.value = await get("/cases");
-  } catch (error) {
-    uni.showToast({ title: error.detail || "获取案件失败", icon: "none" });
-  }
-}
-
-function goCreateCase() {
-  uni.navigateTo({ url: "/pages/lawyer/create-case" });
-}
-
-function goDetail(id) {
-  uni.navigateTo({ url: `/pages/lawyer/case-detail?id=${id}` });
-}
-
-onShow(() => {
-  if (!requireLogin()) {
-    return;
-  }
-  loadCases();
-});
+export default {
+  data() {
+    return {
+      cases: [],
+    };
+  },
+  onShow() {
+    if (!requireLogin()) {
+      return;
+    }
+    this.loadCases();
+  },
+  methods: {
+    async loadCases() {
+      try {
+        this.cases = await get("/cases");
+      } catch (error) {
+        showFormError(friendlyError(error, "获取案件失败"));
+      }
+    },
+    goCreateCase() {
+      uni.navigateTo({ url: "/pages/lawyer/create-case" });
+    },
+    goDetail(id) {
+      uni.navigateTo({ url: `/pages/lawyer/case-detail?id=${id}` });
+    },
+  },
+};
 </script>
 
 <style scoped>

@@ -4,7 +4,7 @@ from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.db.session import get_db
+from app.db.session import get_db, set_current_tenant_context
 from app.models.user import User
 from app.schemas.auth import TokenPayload
 
@@ -23,7 +23,12 @@ def get_current_user(
 
     try:
         payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-        token_data = TokenPayload(sub=payload.get("sub"))
+        token_data = TokenPayload(
+            sub=payload.get("sub"),
+            tenant_id=payload.get("tenant_id"),
+            role=payload.get("role"),
+            is_tenant_admin=payload.get("is_tenant_admin"),
+        )
     except JWTError as exc:
         raise credentials_exception from exc
 
@@ -33,6 +38,11 @@ def get_current_user(
     user = db.query(User).filter(User.id == int(token_data.sub)).first()
     if user is None:
         raise credentials_exception
+    if user.status != 1:
+        raise credentials_exception
+    if token_data.tenant_id is not None and user.tenant_id != token_data.tenant_id:
+        raise credentials_exception
+    set_current_tenant_context(db, user.tenant_id)
     return user
 
 

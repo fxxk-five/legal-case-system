@@ -14,6 +14,7 @@
       </el-form-item>
       <el-form-item label="机构名称">
         <el-input v-model="tenantForm.name" />
+        <div class="field-tip">机构名称最多 100 个字符，建议与正式名称保持一致。</div>
       </el-form-item>
       <el-form-item label="机构类型">
         <el-input :model-value="tenant.type" disabled />
@@ -29,10 +30,11 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import http from '../lib/http'
+import { extractFriendlyError, validateWorkspaceName } from '../lib/formMessages'
 
 const tenant = ref(null)
 const tenantForm = reactive({
@@ -41,19 +43,29 @@ const tenantForm = reactive({
 const submitting = ref(false)
 
 async function loadTenant() {
-  const { data } = await http.get('/tenants/current')
-  tenant.value = data
-  tenantForm.name = data.name
+  try {
+    const { data } = await http.get('/tenants/current')
+    tenant.value = data
+    tenantForm.name = data.name
+  } catch (error) {
+    ElMessage.error(extractFriendlyError(error, '机构信息加载失败'))
+  }
 }
 
 async function saveTenant() {
+  const validationMessage = validateWorkspaceName(tenantForm.name, '机构名称')
+  if (validationMessage) {
+    ElMessage.warning(validationMessage)
+    return
+  }
+
   submitting.value = true
   try {
     const { data } = await http.patch('/tenants/current', { name: tenantForm.name })
     tenant.value = data
     ElMessage.success('机构信息已更新')
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '保存失败')
+    ElMessage.error(extractFriendlyError(error, '保存失败'))
   } finally {
     submitting.value = false
   }
@@ -61,3 +73,12 @@ async function saveTenant() {
 
 onMounted(loadTenant)
 </script>
+
+<style scoped>
+.field-tip {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+</style>

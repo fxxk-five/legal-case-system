@@ -4,7 +4,7 @@
       <text class="section-title">{{ caseInfo.title }}</text>
       <text class="meta">案号：{{ caseInfo.case_number }}</text>
       <text class="meta">状态：{{ caseInfo.status }}</text>
-      <text class="meta">当事人：{{ caseInfo.client?.real_name || '未关联' }}</text>
+      <text class="meta">当事人：{{ caseInfo.client ? caseInfo.client.real_name : '未关联' }}</text>
       <button class="primary-btn" @click="loadInvite">生成当事人邀请</button>
       <view v-if="invitePath" class="invite-box">
         <text class="invite-label">小程序路径</text>
@@ -17,7 +17,7 @@
     <view v-if="!timeline.length" class="card file-card">
       <text>当前暂无时间线记录。</text>
     </view>
-    <view v-for="item in timeline" :key="`${item.event_type}-${item.occurred_at}`" class="card file-card">
+    <view v-for="(item, index) in timeline" :key="index" class="card file-card">
       <text class="timeline-title">{{ item.title }}</text>
       <text class="meta">{{ item.description }}</text>
       <text class="meta">{{ formatTime(item.occurred_at) }}</text>
@@ -29,7 +29,7 @@
     </view>
     <view v-for="file in files" :key="file.id" class="card file-card">
       <text>{{ file.file_name }}</text>
-      <text class="meta">上传人：{{ file.uploader?.real_name || '未知' }}</text>
+      <text class="meta">上传人：{{ file.uploader ? file.uploader.real_name : '未知' }}</text>
       <view class="file-actions">
         <button class="ghost-btn" @click="previewFile(file)">预览</button>
         <button class="ghost-btn" @click="downloadFile(file)">下载</button>
@@ -38,76 +38,75 @@
   </view>
 </template>
 
-<script setup>
-import { onLoad } from "@dcloudio/uni-app";
-import { ref } from "vue";
-
+<script>
 import { get } from "../../common/http";
 import { downloadCaseFile, previewCaseFile } from "../../common/file";
 import { requireLogin } from "../../common/session";
+import { friendlyError, showFormError } from "../../common/form";
 
-const caseId = ref(0);
-const caseInfo = ref(null);
-const files = ref([]);
-const invitePath = ref("");
-const timeline = ref([]);
-
-async function loadCaseDetail() {
-  caseInfo.value = await get(`/cases/${caseId.value}`);
-  timeline.value = caseInfo.value.timeline || [];
-  files.value = await get(`/files/case/${caseId.value}`);
-}
-
-async function loadInvite() {
-  try {
-    const result = await get(`/cases/${caseId.value}/invite-qrcode`);
-    invitePath.value = result.path;
-  } catch (error) {
-    uni.showToast({ title: error.detail || "获取邀请失败", icon: "none" });
-  }
-}
-
-function copyInvitePath() {
-  uni.setClipboardData({
-    data: invitePath.value,
-    success: () => uni.showToast({ title: "已复制", icon: "success" }),
-  });
-}
-
-function formatTime(value) {
-  if (!value) {
-    return "-";
-  }
-  return String(value).replace("T", " ").slice(0, 19);
-}
-
-async function previewFile(file) {
-  try {
-    await previewCaseFile(file);
-  } catch (error) {
-    uni.showToast({ title: error?.detail || "文件预览失败", icon: "none" });
-  }
-}
-
-async function downloadFile(file) {
-  try {
-    await downloadCaseFile(file);
-  } catch (error) {
-    uni.showToast({ title: error?.detail || "文件下载失败", icon: "none" });
-  }
-}
-
-onLoad(async (options) => {
-  if (!requireLogin()) {
-    return;
-  }
-  caseId.value = Number(options.id || 0);
-  try {
-    await loadCaseDetail();
-  } catch (error) {
-    uni.showToast({ title: error.detail || "加载失败", icon: "none" });
-  }
-});
+export default {
+  data() {
+    return {
+      caseId: 0,
+      caseInfo: null,
+      files: [],
+      invitePath: "",
+      timeline: [],
+    };
+  },
+  async onLoad(options) {
+    if (!requireLogin()) {
+      return;
+    }
+    this.caseId = Number(options.id || 0);
+    try {
+      await this.loadCaseDetail();
+    } catch (error) {
+      showFormError(friendlyError(error, "加载失败"));
+    }
+  },
+  methods: {
+    async loadCaseDetail() {
+      this.caseInfo = await get(`/cases/${this.caseId}`);
+      this.timeline = this.caseInfo.timeline || [];
+      this.files = await get(`/files/case/${this.caseId}`);
+    },
+    async loadInvite() {
+      try {
+        const result = await get(`/cases/${this.caseId}/invite-qrcode`);
+        this.invitePath = result.path;
+      } catch (error) {
+        showFormError(friendlyError(error, "获取邀请失败"));
+      }
+    },
+    copyInvitePath() {
+      uni.setClipboardData({
+        data: this.invitePath,
+        success: () => uni.showToast({ title: "已复制", icon: "success" }),
+      });
+    },
+    formatTime(value) {
+      if (!value) {
+        return "-";
+      }
+      return String(value).replace("T", " ").slice(0, 19);
+    },
+    async previewFile(file) {
+      try {
+        await previewCaseFile(file);
+      } catch (error) {
+        showFormError(friendlyError(error, "文件预览失败"));
+      }
+    },
+    async downloadFile(file) {
+      try {
+        await downloadCaseFile(file);
+      } catch (error) {
+        showFormError(friendlyError(error, "文件下载失败"));
+      }
+    },
+  },
+};
 </script>
 
 <style scoped>

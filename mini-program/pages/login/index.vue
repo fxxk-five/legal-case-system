@@ -9,8 +9,17 @@
     <view v-if="needBind" class="card form-card">
       <text class="section-title">绑定手机号</text>
       <input v-model="form.phone" class="input" placeholder="请输入手机号" />
+      <text class="form-tip">手机号应为 6 到 20 位数字。</text>
       <input v-model="form.password" class="input" password placeholder="已有账号请输入密码，新当事人可留空" />
+      <text class="form-tip">律师绑定已有账号时必须填写密码，密码至少 6 位。</text>
       <input v-model="form.realName" class="input" placeholder="姓名（新建用户时使用）" />
+      <text class="form-tip">请输入真实姓名，最多 100 个字符。</text>
+      <input
+        v-model="form.tenantCode"
+        class="input"
+        placeholder="租户编码（律师绑定多租户账号时建议填写）"
+      />
+      <text class="form-tip">租户编码可选；如同一手机号存在多个租户，必须填写。</text>
       <picker :range="roleOptions" range-key="label" @change="handleRoleChange">
         <view class="picker">{{ currentRoleLabel }}</view>
       </picker>
@@ -19,113 +28,124 @@
   </view>
 </template>
 
-<script setup>
-import { onLoad } from "@dcloudio/uni-app";
-import { computed, reactive, ref } from "vue";
-
+<script>
 import { post } from "../../common/http";
 import { setAccessToken, setUserInfo, setWechatOpenid } from "../../common/auth";
 import { getCurrentUser, redirectByRole } from "../../common/session";
+import {
+  friendlyError,
+  showFormError,
+  validateName,
+  validatePassword,
+  validatePhone,
+  validateTenantCode,
+} from "../../common/form";
 
-const loggingIn = ref(false);
-const binding = ref(false);
-const needBind = ref(false);
-const roleOptions = [
-  { label: "律师", value: "lawyer" },
-  { label: "当事人", value: "client" },
-];
-
-const form = reactive({
-  phone: "",
-  password: "",
-  realName: "",
-  role: "lawyer",
-  caseInviteToken: "",
-});
-
-const currentRoleLabel = computed(() => {
-  const target = roleOptions.find((item) => item.value === form.role);
-  return target ? `当前角色：${target.label}` : "请选择角色";
-});
-
-function handleRoleChange(event) {
-  const index = Number(event.detail.value || 0);
-  form.role = roleOptions[index].value;
-}
-
-function jumpByRole(user) {
-  redirectByRole(user);
-}
-
-function handleWechatLogin() {
-  loggingIn.value = true;
-  uni.login({
-    provider: "weixin",
-    success: async ({ code }) => {
+export default {
+  data() {
+    return {
+      loggingIn: false,
+      binding: false,
+      needBind: false,
+      roleOptions: [
+        { label: "律师", value: "lawyer" },
+        { label: "当事人", value: "client" },
+      ],
+      form: {
+        phone: "",
+        password: "",
+        realName: "",
+        role: "lawyer",
+        tenantCode: "",
+        caseInviteToken: "",
+      },
+    };
+  },
+  computed: {
+    currentRoleLabel() {
+      const target = this.roleOptions.find((item) => item.value === this.form.role);
+      return target ? `当前角色：${target.label}` : "请选择角色";
+    },
+  },
+  onLoad(options) {
+    const currentUser = getCurrentUser();
+    if (currentUser) {
+      redirectByRole(currentUser);
+      return;
+    }
+    this.form.caseInviteToken = options.token || "";
+    if (this.form.caseInviteToken) {
+      this.form.role = "client";
+    }
+  },
+  methods: {
+    handleRoleChange(event) {
+      const index = Number(event.detail.value || 0);
+      this.form.role = this.roleOptions[index].value;
+    },
+    jumpByRole(user) {
+      redirectByRole(user);
+    },
+    handleWechatLogin() {
+      this.loggingIn = true;
+      uni.login({
+        provider: "weixin",
+        success: async ({ code }) => {
+          try {
+            const data = await post("/auth/wx-mini-login", { code });
+            setWechatOpenid(data.wechat_openid);
+            if (data.need_bind_phone) {
+              this.needBind = true;
+              return;
+            }
+            setAccessToken(data.access_token);
+            setUserInfo(data.user);
+            this.jumpByRole(data.user);
+          } catch (error) {
+            showFormError(friendlyError(error, "微信登录失败"));
+          } finally {
+            this.loggingIn = false;
+          }
+        },
+        fail: () => {
+          this.loggingIn = false;
+          showFormError("未能获取微信登录凭证");
+        },
+      });
+    },
+    async handleBind() {
+      const validationMessage =
+        validatePhone(this.form.phone) ||
+        validatePassword(this.form.password, "密码", this.form.role === "lawyer") ||
+        validateName(this.form.realName, "姓名") ||
+        validateTenantCode(this.form.tenantCode, false);
+      if (validationMessage) {
+        showFormError(validationMessage);
+        return;
+      }
+      this.binding = true;
       try {
-        const data = await post("/auth/wx-mini-login", { code });
-        setWechatOpenid(data.wechat_openid);
-        if (data.need_bind_phone) {
-          needBind.value = true;
-          return;
-        }
+        const wechatOpenid = uni.getStorageSync("wechat_openid");
+        const data = await post("/auth/wx-mini-bind", {
+          wechat_openid: wechatOpenid,
+          phone: this.form.phone,
+          password: this.form.password || null,
+          real_name: this.form.realName || null,
+          tenant_code: this.form.tenantCode || null,
+          role: this.form.role,
+          case_invite_token: this.form.caseInviteToken || null,
+        });
         setAccessToken(data.access_token);
         setUserInfo(data.user);
-        jumpByRole(data.user);
+        this.jumpByRole(data.user);
       } catch (error) {
-        uni.showToast({ title: error.detail || "微信登录失败", icon: "none" });
+        showFormError(friendlyError(error, "绑定失败"));
       } finally {
-        loggingIn.value = false;
+        this.binding = false;
       }
     },
-    fail: () => {
-      loggingIn.value = false;
-      uni.showToast({ title: "未能获取微信登录 code", icon: "none" });
-    },
-  });
-}
-
-async function handleBind() {
-  if (!form.phone) {
-    uni.showToast({ title: "请输入手机号", icon: "none" });
-    return;
-  }
-  if (form.role === "lawyer" && !form.password) {
-    uni.showToast({ title: "绑定律师账号需要输入密码", icon: "none" });
-    return;
-  }
-  binding.value = true;
-  try {
-    const wechatOpenid = uni.getStorageSync("wechat_openid");
-    const data = await post("/auth/wx-mini-bind", {
-      wechat_openid: wechatOpenid,
-      phone: form.phone,
-      password: form.password || null,
-      real_name: form.realName || null,
-      role: form.role,
-      case_invite_token: form.caseInviteToken || null,
-    });
-    setAccessToken(data.access_token);
-    setUserInfo(data.user);
-    jumpByRole(data.user);
-  } catch (error) {
-    uni.showToast({ title: error.detail || "绑定失败", icon: "none" });
-  } finally {
-    binding.value = false;
-  }
-}
-
-onLoad((options) => {
-  const currentUser = getCurrentUser();
-  if (currentUser) {
-    redirectByRole(currentUser);
-    return;
-  }
-  form.caseInviteToken = options.token || "";
-  if (form.caseInviteToken) {
-    form.role = "client";
-  }
-});
+  },
+};
 </script>
 
 <style scoped>
@@ -150,6 +170,14 @@ onLoad((options) => {
 
 .form-card {
   margin-top: 24rpx;
+}
+
+.form-tip {
+  display: block;
+  margin: -6rpx 0 18rpx;
+  color: rgba(15, 23, 42, 0.62);
+  font-size: 24rpx;
+  line-height: 1.5;
 }
 
 .input,

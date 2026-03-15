@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     WECHAT_MINIAPP_APP_SECRET: str = ""
     WECHAT_MINIAPP_MOCK_LOGIN: bool = True
     WECHAT_MINIAPP_CLIENT_ENTRY_PAGE: str = "pages/client/entry"
+    FILE_ACCESS_TOKEN_EXPIRE_MINUTES: int = 10
 
     BACKEND_CORS_ORIGINS: list[str] = [
         "http://localhost:3000",
@@ -28,6 +29,16 @@ class Settings(BaseSettings):
         "http://127.0.0.1:5173",
     ]
     LOCAL_STORAGE_DIR: str = "storage"
+    STORAGE_BACKEND: str = "local"
+    STORAGE_PUBLIC_BASE_URL: str = ""
+    TENCENT_COS_SECRET_ID: str = ""
+    TENCENT_COS_SECRET_KEY: str = ""
+    TENCENT_COS_BUCKET: str = ""
+    TENCENT_COS_REGION: str = ""
+    ALIYUN_OSS_ACCESS_KEY_ID: str = ""
+    ALIYUN_OSS_ACCESS_KEY_SECRET: str = ""
+    ALIYUN_OSS_BUCKET: str = ""
+    ALIYUN_OSS_REGION: str = ""
 
     model_config = SettingsConfigDict(
         env_file=".env",

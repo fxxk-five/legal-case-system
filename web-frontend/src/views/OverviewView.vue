@@ -29,6 +29,7 @@ import { ElMessage } from 'element-plus'
 
 import http from '../lib/http'
 import { useAuthStore } from '../stores/auth'
+import { extractFriendlyError } from '../lib/formMessages'
 
 const authStore = useAuthStore()
 const tenant = ref(null)
@@ -55,7 +56,7 @@ onMounted(async () => {
     cases.value = casesResp.data
     pendingLawyers.value = pendingResp?.data || []
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '概览信息加载失败')
+    ElMessage.error(extractFriendlyError(error, '概览信息加载失败'))
   }
 })
 </script>

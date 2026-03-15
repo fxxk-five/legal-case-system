@@ -37,15 +37,19 @@
       <el-form :model="form" label-width="88px">
         <el-form-item label="案号">
           <el-input v-model="form.case_number" placeholder="例如 CASE-2026-001" />
+          <div class="field-tip">建议使用清晰的案号规则，最多 100 个字符。</div>
         </el-form-item>
         <el-form-item label="标题">
           <el-input v-model="form.title" placeholder="请输入案件标题" />
+          <div class="field-tip">请输入案件名称或摘要，最多 255 个字符。</div>
         </el-form-item>
         <el-form-item label="当事人姓名">
           <el-input v-model="form.client_real_name" placeholder="请输入当事人姓名" />
+          <div class="field-tip">请输入真实姓名，方便后续归档和联系。</div>
         </el-form-item>
         <el-form-item label="当事人手机号">
           <el-input v-model="form.client_phone" placeholder="请输入手机号" />
+          <div class="field-tip">请输入 6 到 20 位数字。</div>
         </el-form-item>
       </el-form>
       <template #footer>
@@ -57,11 +61,12 @@
 </template>
 
 <script setup>
-import { reactive, ref, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 import { RouterLink } from 'vue-router'
 
 import http from '../lib/http'
+import { extractFriendlyError, validateName, validatePhone, validateWorkspaceName } from '../lib/formMessages'
 
 const cases = ref([])
 const dialogVisible = ref(false)
@@ -86,7 +91,7 @@ async function loadCases() {
     const { data } = await http.get('/cases', { params })
     cases.value = data
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '案件列表加载失败')
+    ElMessage.error(extractFriendlyError(error, '案件列表加载失败'))
   } finally {
     loading.value = false
   }
@@ -100,10 +105,16 @@ function resetForm() {
 }
 
 async function handleCreateCase() {
-  if (!form.case_number || !form.title || !form.client_phone || !form.client_real_name) {
-    ElMessage.warning('请完整填写案件信息')
+  const validationMessage =
+    validateWorkspaceName(form.case_number, '案号') ||
+    validateWorkspaceName(form.title, '案件标题') ||
+    validateName(form.client_real_name, '当事人姓名') ||
+    validatePhone(form.client_phone, '当事人手机号')
+  if (validationMessage) {
+    ElMessage.warning(validationMessage)
     return
   }
+
   submitting.value = true
   try {
     await http.post('/cases', form)
@@ -112,7 +123,7 @@ async function handleCreateCase() {
     resetForm()
     await loadCases()
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '案件创建失败')
+    ElMessage.error(extractFriendlyError(error, '案件创建失败'))
   } finally {
     submitting.value = false
   }
@@ -120,3 +131,12 @@ async function handleCreateCase() {
 
 onMounted(loadCases)
 </script>
+
+<style scoped>
+.field-tip {
+  margin-top: 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #6b7280;
+}
+</style>

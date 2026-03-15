@@ -5,11 +5,13 @@ class UserRegister(BaseModel):
     phone: str = Field(min_length=6, max_length=20)
     password: str = Field(min_length=6, max_length=128)
     real_name: str = Field(min_length=1, max_length=100)
+    tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
 
 
 class UserLogin(BaseModel):
     phone: str = Field(min_length=6, max_length=20)
     password: str = Field(min_length=6, max_length=128)
+    tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
 
 
 class WechatMiniLogin(BaseModel):
@@ -22,6 +24,7 @@ class WechatMiniBind(BaseModel):
     password: str | None = Field(default=None, min_length=6, max_length=128)
     real_name: str | None = Field(default=None, min_length=1, max_length=100)
     tenant_id: int | None = None
+    tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
     role: str = Field(default="client", pattern="^(lawyer|client|tenant_admin)$")
     case_invite_token: str | None = None
 
@@ -43,6 +46,7 @@ class TokenPayload(BaseModel):
     sub: str | None = None
     tenant_id: int | None = None
     role: str | None = None
+    is_tenant_admin: bool | None = None
 
 
 class UserRead(BaseModel):

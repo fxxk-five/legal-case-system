@@ -4,14 +4,14 @@
       <text class="section-title">{{ caseInfo.title }}</text>
       <text class="meta">案号：{{ caseInfo.case_number }}</text>
       <text class="meta">当前状态：{{ caseInfo.status }}</text>
-      <text class="meta">负责律师：{{ caseInfo.assigned_lawyer?.real_name || '未指派' }}</text>
+      <text class="meta">负责律师：{{ caseInfo.assigned_lawyer ? caseInfo.assigned_lawyer.real_name : '未指派' }}</text>
     </view>
 
     <view class="section-title">案件时间线</view>
     <view v-if="!timeline.length" class="card file-card">
       <text>当前暂无时间线记录。</text>
     </view>
-    <view v-for="item in timeline" :key="`${item.event_type}-${item.occurred_at}`" class="card file-card">
+    <view v-for="(item, index) in timeline" :key="index" class="card file-card">
       <text class="timeline-title">{{ item.title }}</text>
       <text class="meta">{{ item.description }}</text>
       <text class="meta">{{ formatTime(item.occurred_at) }}</text>
@@ -38,94 +38,97 @@
   </view>
 </template>
 
-<script setup>
-import { onShow } from "@dcloudio/uni-app";
-import { ref } from "vue";
-
-import { get, upload } from "../../common/http";
+<script>
+import { get, uploadByPolicy } from "../../common/http";
 import { downloadCaseFile, previewCaseFile } from "../../common/file";
 import { requireLogin } from "../../common/session";
+import { friendlyError, showFormError } from "../../common/form";
 
-const caseInfo = ref(null);
-const files = ref([]);
-const uploading = ref(false);
-const timeline = ref([]);
-
-async function loadData() {
-  const caseList = await get("/cases");
-  if (!caseList.length) {
-    caseInfo.value = null;
-    files.value = [];
-    return;
-  }
-  caseInfo.value = await get(`/cases/${caseList[0].id}`);
-  timeline.value = caseInfo.value.timeline || [];
-  files.value = await get(`/files/case/${caseList[0].id}`);
-}
-
-function handleUpload() {
-  if (!caseInfo.value) {
-    uni.showToast({ title: "当前没有可上传的案件", icon: "none" });
-    return;
-  }
-
-  uni.chooseMessageFile({
-    count: 1,
-    type: "file",
-    success: async ({ tempFiles }) => {
-      const target = tempFiles?.[0];
-      if (!target?.path) {
-        uni.showToast({ title: "未选择文件", icon: "none" });
+export default {
+  data() {
+    return {
+      caseInfo: null,
+      files: [],
+      uploading: false,
+      timeline: [],
+    };
+  },
+  async onShow() {
+    if (!requireLogin()) {
+      return;
+    }
+    try {
+      await this.loadData();
+    } catch (error) {
+      showFormError(friendlyError(error, "获取案件失败"));
+    }
+  },
+  methods: {
+    async loadData() {
+      const caseList = await get("/cases");
+      if (!caseList.length) {
+        this.caseInfo = null;
+        this.files = [];
+        return;
+      }
+      this.caseInfo = await get(`/cases/${caseList[0].id}`);
+      this.timeline = this.caseInfo.timeline || [];
+      this.files = await get(`/files/case/${caseList[0].id}`);
+    },
+    handleUpload() {
+      if (!this.caseInfo) {
+        uni.showToast({ title: "当前没有可上传的案件", icon: "none" });
         return;
       }
 
-      uploading.value = true;
+      uni.chooseMessageFile({
+        count: 1,
+        type: "file",
+        success: async ({ tempFiles }) => {
+          const target = tempFiles && tempFiles.length ? tempFiles[0] : null;
+          if (!target || !target.path) {
+            uni.showToast({ title: "未选择文件", icon: "none" });
+            return;
+          }
+
+          this.uploading = true;
+          try {
+            const policy = await get(
+              `/files/upload-policy?case_id=${this.caseInfo.id}&file_name=${encodeURIComponent(target.name || "upload-file")}&content_type=${encodeURIComponent(target.type || "application/octet-stream")}`
+            );
+            await uploadByPolicy(policy, target.path);
+            uni.showToast({ title: "上传成功", icon: "success" });
+            await this.loadData();
+          } catch (error) {
+            showFormError(friendlyError(error, "上传失败"));
+          } finally {
+            this.uploading = false;
+          }
+        },
+      });
+    },
+    formatTime(value) {
+      if (!value) {
+        return "-";
+      }
+      return String(value).replace("T", " ").slice(0, 19);
+    },
+    async previewFile(file) {
       try {
-        await upload(`/files/upload?case_id=${caseInfo.value.id}`, target.path);
-        uni.showToast({ title: "上传成功", icon: "success" });
-        await loadData();
+        await previewCaseFile(file);
       } catch (error) {
-        uni.showToast({ title: error.detail || "上传失败", icon: "none" });
-      } finally {
-        uploading.value = false;
+        showFormError(friendlyError(error, "文件预览失败"));
       }
     },
-  });
-}
-
-function formatTime(value) {
-  if (!value) {
-    return "-";
-  }
-  return String(value).replace("T", " ").slice(0, 19);
-}
-
-async function previewFile(file) {
-  try {
-    await previewCaseFile(file);
-  } catch (error) {
-    uni.showToast({ title: error?.detail || "文件预览失败", icon: "none" });
-  }
-}
-
-async function downloadFile(file) {
-  try {
-    await downloadCaseFile(file);
-  } catch (error) {
-    uni.showToast({ title: error?.detail || "文件下载失败", icon: "none" });
-  }
-}
-
-onShow(async () => {
-  if (!requireLogin()) {
-    return;
-  }
-  try {
-    await loadData();
-  } catch (error) {
-    uni.showToast({ title: error.detail || "获取案件失败", icon: "none" });
-  }
-});
+    async downloadFile(file) {
+      try {
+        await downloadCaseFile(file);
+      } catch (error) {
+        showFormError(friendlyError(error, "文件下载失败"));
+      }
+    },
+  },
+};
 </script>
 
 <style scoped>

@@ -19,7 +19,10 @@ def list_notifications(
 ) -> list[Notification]:
     query = (
         db.query(Notification)
-        .filter(Notification.user_id == current_user.id)
+        .filter(
+            Notification.user_id == current_user.id,
+            Notification.tenant_id == current_user.tenant_id,
+        )
         .order_by(Notification.created_at.desc())
     )
     if unread_only:
@@ -35,7 +38,11 @@ def mark_notification_read(
 ) -> Notification:
     notification = (
         db.query(Notification)
-        .filter(Notification.id == notification_id, Notification.user_id == current_user.id)
+        .filter(
+            Notification.id == notification_id,
+            Notification.user_id == current_user.id,
+            Notification.tenant_id == current_user.tenant_id,
+        )
         .first()
     )
     if notification is None:

@@ -1,166 +1,259 @@
 # 法律案件管理系统
 
-面向单律所试点、具备多租户扩展能力的法律案件管理系统。本仓库当前目标不是直接上线，而是先完成一套可以在本地稳定演示的闭环版本。
+这是一个面向律所场景的法律案件管理系统，目标形态包括：
 
-## 当前完成度
+- 律师 Web 端
+- 微信小程序端
+- 多租户机构管理
+- AI 分析与计费
+- 平台超级管理员后台
 
-目前已经具备以下能力：
+但要先把一件事说清楚：
 
-- 后端：FastAPI + PostgreSQL + Alembic，支持用户认证、案件管理、律师邀请审批、文件上传下载、通知、统计
-- Web 端：支持管理员和律师登录、案件查看、新建案件、案件详情、文件管理、律师管理、机构设置
-- 小程序端：已建立 uni-app 骨架，支持微信 mock 登录、手机号绑定、律师查看案件、当事人进入案件、当事人上传材料
-- 部署资产：已提供 Dockerfile、Compose、Nginx 配置和部署文档
+当前仓库已经做出的，是“本地可演示版”；
+你最新给出的，是“完整商业化版本”的开发蓝图。
 
-## 本地演示主流程
+这两者不是同一个完成度。后续开发必须以完整蓝图为总目标，以本地演示版为当前基础，按阶段继续补齐，而不是误以为现在已经接近正式上线。
 
-你现在可以按下面的链路做演示：
+## 当前项目真实状态
 
-1. 管理员登录 Web 端
-2. 律师创建案件
-3. 律师生成当事人邀请路径
-4. 当事人在小程序端进入案件并绑定手机号
-5. 当事人查看案件并上传文件
-6. 律师在 Web 端或小程序端查看材料、下载材料
+### 已经完成的部分
 
-## 仓库结构
+- 后端基础骨架已经可运行：FastAPI + PostgreSQL + Alembic
+- 已有基础认证、案件管理、文件记录、通知、统计接口
+- Web 端已经能完成登录、案件列表、案件详情、文件查看、律师管理、机构设置等演示流程
+- 小程序已经能完成 mock 微信登录、绑定手机号、进入案件、上传材料、与 Web 查看同一案件文件的联动演示
+- Docker 本地演示环境已经基本打通
 
-- `backend/`：FastAPI 后端服务
-- `web-frontend/`：Vue 3 Web 前端
+### 还没有完成的关键部分
+
+- 真正完整的多租户体系还没落地完
+- 机构创建、加入机构、审批流还不完整
+- PostgreSQL 行级安全策略没有形成完整闭环
+- Redis / Celery 异步任务没有真正承接 AI、通知、定时任务主链路
+- AI 仍然是演示占位，不是正式可计费能力
+- 微信支付、订阅套餐、个人充值没有真正打通
+- 对象存储直传、临时下载地址没有完成正式版实现
+- 平台超级管理员后台还没有开始
+- 小程序还没达到你原设计里的完整律师端 + 当事人端能力
+
+## 现在应该怎么理解这个仓库
+
+建议把当前仓库定义为：
+
+“阶段一到阶段三之间的过渡版本，偏向本地演示，不是正式上线版。”
+
+也就是说：
+
+1. 它可以演示核心业务闭环
+2. 它可以作为后续开发的基础
+3. 但它距离你最开始定义的完整系统，还有明显差距
+
+## 优化后的开发逻辑
+
+你之前的六阶段方向是对的，但执行顺序需要更严格，避免继续边演示边偏航。
+
+### 第一层目标：先把基础架构做成可扩展
+
+- 完整租户模型
+- 完整角色体系
+- 应用层 + 数据库层双重租户隔离
+- 标准化认证、授权、中间件、审计日志
+
+### 第二层目标：再把律师主工作台做完整
+
+- Web 案件看板
+- 案件详情
+- 文件管理
+- 通知提醒
+- 机构管理员后台
+
+### 第三层目标：再补小程序闭环
+
+- 律师小程序
+- 当事人小程序
+- 邀请、扫码、绑定、上传、查看进度
+
+### 第四层目标：最后再接重能力
+
+- AI 真调用
+- 计费逻辑
+- 支付
+- 平台超级管理员后台
+- 生产部署与安全加固
+
+这个顺序比“哪里能跑就先补哪里”更稳，否则后面会发生大量返工。
+
+## 当前仓库结构
+
+- `backend/`：FastAPI 后端服务、数据库模型、接口、业务服务、脚本
+- `web-frontend/`：Vue 3 律师 Web 端和机构管理员端
 - `mini-program/`：uni-app 微信小程序
-- `docs/`：中文开发、联调、部署文档
-- `scripts/`：本地辅助脚本
+- `docs/`：中文开发、联调、部署、验收文档
+- `scripts/`：环境检测、Docker 冒烟、演示辅助脚本
+- `deploy/`：部署相关配置
 
-## 本地启动步骤
+更详细说明见：
 
-### 1. 检查环境
+- [项目结构与角色流程](/d:/code/law/legal-case-system/docs/project-structure-and-flows.md)
+- [完整开发路线图](/d:/code/law/legal-case-system/docs/full-development-roadmap.md)
+- [现状差距清单](/d:/code/law/legal-case-system/docs/current-gap-analysis.md)
 
-需要本机已安装并可用：
+## 角色使用流程
 
-- Python 3.10+
-- Node.js 18+
-- PostgreSQL 14+
-- Git
-- VS Code
-- HBuilderX
-- 微信开发者工具
+### 1. 平台超级管理员
 
-可先运行：
+目标职责：
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\check-env.ps1
-```
+- 管所有租户
+- 管所有用户
+- 管套餐和系统参数
+- 看平台统计和收入
 
-### 2. 初始化后端
+当前状态：
 
-```powershell
-cd D:\code\law\legal-case-system\backend
-Copy-Item .env.example .env
-.\venv\Scripts\Activate.ps1
-python init_db.py
-python -m uvicorn app.main:app --reload
-```
+- 还没有正式实现
 
-默认管理账号：
+### 2. 租户管理员
 
-- 手机号：`13800000000`
-- 密码：`admin123456`
+目标职责：
 
-默认本地小程序配置：
+- 创建机构
+- 管理本所律师
+- 审批加入申请
+- 购买订阅套餐
+- 查看本所统计
 
-- `WECHAT_MINIAPP_MOCK_LOGIN=true`
-- 不强制填写 `WECHAT_MINIAPP_APP_ID`
-- 不强制填写 `WECHAT_MINIAPP_APP_SECRET`
+当前状态：
 
-### 3. 启动 Web 端
+- 已有部分机构设置和律师管理能力
+- 但完整的机构创建、加入、审批、套餐购买还未完整实现
 
-```powershell
-cd D:\code\law\legal-case-system\web-frontend
-npm install
-npm run dev
-```
+### 3. 律师
 
-默认访问地址：
+目标职责：
 
-- Web：`http://127.0.0.1:5173`
-- API：`http://127.0.0.1:8000/api/v1`
-- Swagger：`http://127.0.0.1:8000/docs`
+- 创建案件
+- 管理案件进度
+- 上传和查看材料
+- 邀请当事人
+- 调用 AI 分析
 
-### 4. 启动小程序端
+当前状态：
 
-1. 用 HBuilderX 导入 [mini-program](/D:/code/law/legal-case-system/mini-program)
-2. 在 `manifest.json` 中填入你自己的微信小程序 `appid`
-3. 运行到微信开发者工具
-4. 在微信开发者工具中调试登录、跳转、上传和接口请求
+- Web 端和小程序端都有部分能力
+- AI、通知、支付、完整看板仍未完成
 
-### 5. Docker 演示方式
+### 4. 当事人
 
-如果你要直接用 Docker 运行整套环境：
+目标职责：
 
-```powershell
-cd D:\code\law\legal-case-system
-docker compose up --build -d
-docker compose exec backend python init_db.py
-powershell -ExecutionPolicy Bypass -File .\scripts\docker-smoke-test.ps1
-```
+- 扫码进入案件
+- 绑定手机号
+- 查看案件进度
+- 上传材料
+- 接收律师通知
 
-Docker 访问地址：
+当前状态：
 
-- 统一入口：`http://localhost`
-- Web 直连：`http://localhost:8080`
-- Swagger：`http://localhost:8000/docs`
+- 本地演示流程已经能跑通
+- 但还不是正式上线级体验
 
-## 你需要做的
+## 当前最主要的问题
 
-### 工具与账号
+从你最早的完整需求看，当前项目主要有 5 个方向偏差：
 
-- 安装并打开 `HBuilderX`
-- 安装并登录 `微信开发者工具`
-- 准备一个微信小程序测试号或正式 `AppID`
-- 保证本机 PostgreSQL 可正常连接
+1. 目标偏差
+当前实现长期围绕“本地演示版”推进，但没有持续对照完整商业版蓝图。
 
-### 本地配置
+2. 多租户偏差
+现在很多流程默认单租户或默认租户，离真正可扩展的机构化系统还有距离。
 
-- 在 `backend/.env` 中填好你的 PostgreSQL 用户名和密码
-- 本地阶段保持 `WECHAT_MINIAPP_MOCK_LOGIN=true`
-- 真机联调时，再填写真实 `AppID/AppSecret` 并关闭 mock
+3. AI 与计费偏差
+你原计划把 AI 和计费作为产品核心价值，但当前仍基本停留在占位。
 
-### 调试配合
+4. 平台级能力缺失
+超级管理员后台、套餐配置、系统参数、全局报表还没有落地。
 
-- 你负责在微信开发者工具里观察授权、跳转、网络请求和上传行为
-- 你负责把 `mini-program/manifest.json` 里的 `appid` 改成你自己的
-- 你负责在浏览器里测试 Web 端文件预览是否被浏览器拦截弹窗
-- 如果微信端报错，把报错截图或接口响应发给我，我继续收口
+5. 上线准备不足
+对象存储、支付回调、异步任务、监控告警、安全审计、预发布环境还没有形成正式方案闭环。
 
-### 演示数据
+## 建议的下一步实施顺序
 
-- 你需要在 Docker 环境中执行一次演示数据脚本：
+不要再平均推进所有模块，建议按下面顺序继续：
 
-```powershell
-cd D:\code\law\legal-case-system
-docker compose exec backend python -m app.scripts.generate_demo_data
-```
+1. 先补“真正的阶段一”
+重点补齐多租户、租户创建、加入机构、审批流、RLS、认证中间件、基础租户 API。
 
-- 执行后会自动生成：
-  - 2 到 3 个演示案件
-  - 演示律师账号
-  - 演示当事人账号
-  - 演示通知
-  - 演示文件记录
+2. 再补“阶段二缺口”
+重点完成 Web 案件看板、案件详情增强、通知中心、管理员后台、文件权限和对象存储策略。
 
-## 关键文档
+3. 再补“阶段三缺口”
+重点完成小程序律师端、当事人端、邀请二维码、个人中心、文件体验。
 
-- [项目初始化说明](/D:/code/law/legal-case-system/docs/project-setup.md)
-- [第 1 天清单](/D:/code/law/legal-case-system/docs/day-01-checklist.md)
-- [第 2 天清单](/D:/code/law/legal-case-system/docs/day-02-checklist.md)
-- [第 22 天清单](/D:/code/law/legal-case-system/docs/day-22-checklist.md)
-- [第 23 天清单](/D:/code/law/legal-case-system/docs/day-23-checklist.md)
-- [第 24 天清单](/D:/code/law/legal-case-system/docs/day-24-checklist.md)
-- [第 25 天清单](/D:/code/law/legal-case-system/docs/day-25-checklist.md)
-- [第 26 天清单](/D:/code/law/legal-case-system/docs/day-26-checklist.md)
-- [第 27 天清单](/D:/code/law/legal-case-system/docs/day-27-checklist.md)
-- [第 28 天清单](/D:/code/law/legal-case-system/docs/day-28-checklist.md)
-- [本地联调指南](/D:/code/law/legal-case-system/docs/local-demo-guide.md)
-- [环境变量清单](/D:/code/law/legal-case-system/docs/environment-checklist.md)
-- [部署指南](/D:/code/law/legal-case-system/docs/deployment-guide.md)
-- [腾讯云上线操作手册](/D:/code/law/legal-case-system/docs/tencent-cloud-deployment-guide.md)
-- [最终验收清单](/D:/code/law/legal-case-system/docs/final-acceptance-checklist.md)
+4. 再进入“阶段四”
+接入真实 AI、计费、Redis、Celery、支付。
+
+5. 最后做“阶段五和阶段六”
+完成平台超级管理员后台、测试、安全、部署、上线。
+
+## 你现在需要做的事
+
+### 开发配合
+
+- 继续把所有新需求都以中文发给我
+- 每次优先说清楚你要补哪个阶段，不要只说“继续做”
+- 如果微信开发者工具、HBuilderX、Docker、腾讯云出现报错，把报错原文或截图发我
+
+### 本机工具
+
+- 保持 PostgreSQL 可用
+- 保持 Docker Desktop 可用
+- 保持 HBuilderX 和微信开发者工具可用
+- 保持 GitHub 仓库可推送
+
+### 账号与资源
+
+- 你后面需要准备真实小程序 AppID / AppSecret
+- 你后面需要准备微信支付商户号
+- 你后面需要准备腾讯云服务器、域名、对象存储
+
+## 文档入口
+
+- [完整开发路线图](/d:/code/law/legal-case-system/docs/full-development-roadmap.md)
+- [现状差距清单](/d:/code/law/legal-case-system/docs/current-gap-analysis.md)
+- [项目结构与角色流程](/d:/code/law/legal-case-system/docs/project-structure-and-flows.md)
+- [本地联调指南](/d:/code/law/legal-case-system/docs/local-demo-guide.md)
+- [小程序联动演示说明](/d:/code/law/legal-case-system/docs/mini-program-demo-guide.md)
+- [腾讯云上线操作手册](/d:/code/law/legal-case-system/docs/tencent-cloud-deployment-guide.md)
+
+## 当前默认演示入口
+
+### Web
+
+- 地址：`http://localhost`
+- 默认管理员：`13800000000 / admin123456`
+
+### 后端 Swagger
+
+- 地址：`http://localhost:8000/docs`
+
+### 小程序
+
+- 当前建议继续用 mock 微信登录联调
+- 当前更适合做演示，不适合直接当正式上线版
+
+### 当前文件访问策略
+
+- 上传仍走后端处理
+- 文件内容默认存放在本地磁盘
+- 前端不再直接拿本地物理路径
+- 下载与预览已改为“先申请临时访问链接，再访问文件”
+- 后续切换腾讯云 COS 或阿里云 OSS 时，优先沿用这套“临时访问链接”模式
+
+## 当前可直接执行的自测脚本
+
+- Docker 联调整体冒烟：
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\docker-smoke-test.ps1`
+- 多租户主链路冒烟：
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\multi-tenant-smoke-test.ps1`

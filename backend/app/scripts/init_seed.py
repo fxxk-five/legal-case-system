@@ -44,12 +44,17 @@ def init_seed_data(db: Session) -> None:
 
     welcome_notification = (
         db.query(Notification)
-        .filter(Notification.user_id == admin.id, Notification.title == "系统欢迎")
+        .filter(
+            Notification.tenant_id == tenant.id,
+            Notification.user_id == admin.id,
+            Notification.title == "系统欢迎",
+        )
         .first()
     )
     if welcome_notification is None:
         db.add(
             Notification(
+                tenant_id=tenant.id,
                 user_id=admin.id,
                 title="系统欢迎",
                 content="欢迎使用法律案件管理系统，当前环境已完成基础初始化。",

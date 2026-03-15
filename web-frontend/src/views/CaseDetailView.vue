@@ -110,6 +110,7 @@ import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 
 import http from '../lib/http'
+import { extractFriendlyError } from '../lib/formMessages'
 
 const route = useRoute()
 const caseDetail = ref(null)
@@ -134,7 +135,7 @@ async function loadDetail() {
     statusForm.status = detailResp.data.status
     files.value = filesResp.data
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '案件详情加载失败')
+    ElMessage.error(extractFriendlyError(error, '案件详情加载失败'))
   } finally {
     loadingDetail.value = false
     loadingFiles.value = false
@@ -142,22 +143,36 @@ async function loadDetail() {
 }
 
 async function handleUpload({ file }) {
-  const formData = new FormData()
-  formData.append('upload', file)
   try {
-    await http.post(`/files/upload?case_id=${route.params.id}`, formData, {
+    const { data: policy } = await http.get('/files/upload-policy', {
+      params: {
+        case_id: route.params.id,
+        file_name: file.name,
+        content_type: file.type || 'application/octet-stream',
+      },
+    })
+    const formData = new FormData()
+    Object.entries(policy.form_fields || {}).forEach(([key, value]) => {
+      formData.append(key, value)
+    })
+    formData.append(policy.file_field_name || 'upload', file)
+    await http.request({
+      url: policy.upload_url.replace('/api/v1', ''),
+      method: policy.method || 'POST',
+      data: formData,
       headers: { 'Content-Type': 'multipart/form-data' },
     })
     ElMessage.success('文件上传成功')
     await loadDetail()
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '文件上传失败')
+    ElMessage.error(extractFriendlyError(error, '文件上传失败'))
   }
 }
 
 async function downloadFile(file) {
   try {
-    const response = await http.get(`/files/${file.id}/download`, {
+    const { data: access } = await http.get(`/files/${file.id}/access-link`)
+    const response = await http.get(access.access_url.replace('/api/v1', ''), {
       responseType: 'blob',
     })
     const url = window.URL.createObjectURL(response.data)
@@ -173,14 +188,15 @@ async function downloadFile(file) {
 
 async function previewFile(file) {
   try {
-    const response = await http.get(`/files/${file.id}/download`, {
+    const { data: access } = await http.get(`/files/${file.id}/access-link`)
+    const response = await http.get(access.access_url.replace('/api/v1', ''), {
       responseType: 'blob',
     })
     const url = window.URL.createObjectURL(response.data)
     window.open(url, '_blank', 'noopener,noreferrer')
     window.setTimeout(() => window.URL.revokeObjectURL(url), 60000)
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '文件预览失败')
+    ElMessage.error(extractFriendlyError(error, '文件预览失败'))
   }
 }
 
@@ -190,7 +206,7 @@ async function loadInvitePath() {
     invitePath.value = data.path
     ElMessage.success('已生成当事人邀请路径')
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '获取邀请失败')
+    ElMessage.error(extractFriendlyError(error, '获取邀请失败'))
   }
 }
 
@@ -209,7 +225,7 @@ async function handleUpdateStatus() {
     ElMessage.success('案件状态已更新')
     await loadDetail()
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '状态更新失败')
+    ElMessage.error(extractFriendlyError(error, '状态更新失败'))
   }
 }
 

@@ -16,7 +16,7 @@ from app.schemas.auth import (
     WechatMiniLoginResult,
 )
 from app.schemas.invite import InviteRegister
-from app.services.auth import authenticate_user, create_user
+from app.services.auth import authenticate_user, create_user, resolve_tenant_for_registration
 from app.services.invite import get_valid_invite
 from app.services.mini_program import decode_case_invite_token, exchange_code_for_openid
 
@@ -26,11 +26,11 @@ router = APIRouter(prefix="/auth", tags=["Auth"])
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register_user(user_in: UserRegister, db: Session = Depends(get_db)) -> User:
-    tenant = db.query(Tenant).filter(Tenant.id == 1).first()
+    tenant = resolve_tenant_for_registration(db, tenant_code=user_in.tenant_code)
     if tenant is None:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="默认租户不存在，请先执行初始化脚本。",
+            detail="无法确定注册目标租户，请传入 tenant_code 或先创建租户。",
         )
 
     existing_user = (
@@ -49,7 +49,32 @@ def register_user(user_in: UserRegister, db: Session = Depends(get_db)) -> User:
 
 @router.post("/login", response_model=Token)
 def login(user_in: UserLogin, db: Session = Depends(get_db)) -> Token:
-    user = authenticate_user(db, phone=user_in.phone, password=user_in.password)
+    tenant_id: int | None = None
+    if user_in.tenant_code:
+        tenant = (
+            db.query(Tenant)
+            .filter(Tenant.tenant_code == user_in.tenant_code, Tenant.status == 1)
+            .first()
+        )
+        if tenant is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="目标租户不存在或已停用。",
+            )
+        tenant_id = tenant.id
+
+    try:
+        user = authenticate_user(
+            db,
+            phone=user_in.phone,
+            password=user_in.password,
+            tenant_id=tenant_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="该手机号存在于多个租户，请填写 tenant_code 后再登录。",
+        ) from exc
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -59,7 +84,11 @@ def login(user_in: UserLogin, db: Session = Depends(get_db)) -> Token:
     return Token(
         access_token=create_access_token(
             user.id,
-            extra_data={"tenant_id": user.tenant_id, "role": user.role},
+            extra_data={
+                "tenant_id": user.tenant_id,
+                "role": user.role,
+                "is_tenant_admin": user.is_tenant_admin,
+            },
         )
     )
 
@@ -80,7 +109,11 @@ def wx_mini_login(login_in: WechatMiniLogin, db: Session = Depends(get_db)) -> W
     return WechatMiniLoginResult(
         access_token=create_access_token(
             user.id,
-            extra_data={"tenant_id": user.tenant_id, "role": user.role},
+            extra_data={
+                "tenant_id": user.tenant_id,
+                "role": user.role,
+                "is_tenant_admin": user.is_tenant_admin,
+            },
         ),
         wechat_openid=openid,
         need_bind_phone=False,
@@ -103,6 +136,7 @@ def wx_mini_bind(bind_in: WechatMiniBind, db: Session = Depends(get_db)) -> Wech
                 extra_data={
                     "tenant_id": existing_openid_user.tenant_id,
                     "role": existing_openid_user.role,
+                    "is_tenant_admin": existing_openid_user.is_tenant_admin,
                 },
             ),
             wechat_openid=bind_in.wechat_openid,
@@ -115,9 +149,28 @@ def wx_mini_bind(bind_in: WechatMiniBind, db: Session = Depends(get_db)) -> Wech
     if bind_in.case_invite_token:
         invite_payload = decode_case_invite_token(bind_in.case_invite_token)
         tenant_id = int(invite_payload["tenant_id"])
+    elif bind_in.tenant_code:
+        tenant = (
+            db.query(Tenant)
+            .filter(Tenant.tenant_code == bind_in.tenant_code, Tenant.status == 1)
+            .first()
+        )
+        if tenant is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="目标租户不存在或已停用。",
+            )
+        tenant_id = tenant.id
 
     if tenant_id is None:
-        tenant_id = 1
+        existing_users = db.query(User).filter(User.phone == bind_in.phone).order_by(User.created_at.asc()).all()
+        if len(existing_users) == 1:
+            tenant_id = existing_users[0].tenant_id
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="未提供 tenant_id，且无法自动判断目标租户。",
+            )
 
     tenant = db.query(Tenant).filter(Tenant.id == tenant_id).first()
     if tenant is None:
@@ -130,7 +183,18 @@ def wx_mini_bind(bind_in: WechatMiniBind, db: Session = Depends(get_db)) -> Wech
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="绑定已有账号时必须输入密码。",
             )
-        authenticated_user = authenticate_user(db, phone=bind_in.phone, password=bind_in.password)
+        try:
+            authenticated_user = authenticate_user(
+                db,
+                phone=bind_in.phone,
+                password=bind_in.password,
+                tenant_id=tenant_id,
+            )
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="该手机号存在于多个租户，请先指定 tenant_id。",
+            ) from exc
         if authenticated_user is None or authenticated_user.id != user.id:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
@@ -169,7 +233,11 @@ def wx_mini_bind(bind_in: WechatMiniBind, db: Session = Depends(get_db)) -> Wech
     return WechatMiniLoginResult(
         access_token=create_access_token(
             user.id,
-            extra_data={"tenant_id": user.tenant_id, "role": user.role},
+            extra_data={
+                "tenant_id": user.tenant_id,
+                "role": user.role,
+                "is_tenant_admin": user.is_tenant_admin,
+            },
         ),
         wechat_openid=bind_in.wechat_openid,
         need_bind_phone=False,

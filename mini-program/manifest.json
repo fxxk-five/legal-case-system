@@ -1,11 +1,11 @@
 {
   "name": "legal-case-mini-program",
-  "appid": "",
+  "appid": "wx13db851f4cde9f9f",
   "description": "法律案件管理系统微信小程序",
   "versionName": "0.1.0",
   "versionCode": "100",
   "mp-weixin": {
-    "appid": "",
+    "appid": "wx13db851f4cde9f9f",
     "setting": {
       "urlCheck": false,
       "es6": true

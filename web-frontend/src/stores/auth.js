@@ -8,12 +8,19 @@ export const useAuthStore = defineStore('auth', {
     currentUser: null,
   }),
   actions: {
+    async applyAccessToken(token) {
+      this.token = token
+      localStorage.setItem('access_token', this.token)
+      await this.fetchCurrentUser()
+    },
     async login(payload) {
       try {
-        const { data } = await http.post('/auth/login', payload)
-        this.token = data.access_token
-        localStorage.setItem('access_token', this.token)
-        await this.fetchCurrentUser()
+        const requestPayload = {
+          ...payload,
+          tenant_code: payload.tenant_code?.trim() || null,
+        }
+        const { data } = await http.post('/auth/login', requestPayload)
+        await this.applyAccessToken(data.access_token)
       } catch (error) {
         this.logout()
         throw error

@@ -37,6 +37,7 @@ def create_deadline_notifications(db: Session) -> int:
             continue
 
         notification = Notification(
+            tenant_id=case.tenant_id,
             user_id=case.assigned_lawyer_id,
             title="case_deadline_reminder",
             content=f"Case {case.case_number} will reach its deadline within 3 days.",

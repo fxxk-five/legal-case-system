@@ -33,6 +33,7 @@ import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
 
 import http from '../lib/http'
+import { extractFriendlyError } from '../lib/formMessages'
 
 const stats = reactive({
   lawyer_count: 0,
@@ -47,7 +48,7 @@ async function loadStats() {
     const { data } = await http.get('/stats/dashboard')
     Object.assign(stats, data)
   } catch (error) {
-    ElMessage.error(error?.response?.data?.detail || '统计数据加载失败')
+    ElMessage.error(extractFriendlyError(error, '统计数据加载失败'))
   } finally {
     loading.value = false
   }
