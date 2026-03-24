@@ -1,5 +1,5 @@
 <template>
-  <view class="page-container">
+  <view class="page-container workspace-page">
     <view class="card" v-if="caseInfo">
       <text class="section-title">{{ caseInfo.title }}</text>
       <text class="meta">案号：{{ caseInfo.case_number }}</text>
@@ -36,17 +36,23 @@
         <button class="ghost-btn" @click="downloadFile(file)">下载</button>
       </view>
     </view>
+
+    <workspace-tab-bar current-key="cases" />
   </view>
 </template>
 
 <script>
+import WorkspaceTabBar from "../../components/WorkspaceTabBar.vue";
 import { formatCaseStatus, formatText } from "../../common/display";
 import { get } from "../../common/http";
 import { downloadCaseFile, previewCaseFile } from "../../common/file";
-import { requireLogin } from "../../common/session";
 import { friendlyError, showFormError } from "../../common/form";
+import { ensureWorkspaceAccess } from "../../common/workspace";
 
 export default {
+  components: {
+    WorkspaceTabBar,
+  },
   data() {
     return {
       caseId: 0,
@@ -57,7 +63,8 @@ export default {
     };
   },
   async onLoad(options) {
-    if (!requireLogin()) {
+    const user = ensureWorkspaceAccess();
+    if (!user) {
       return;
     }
     this.caseId = Number(options.id || 0);

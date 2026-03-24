@@ -3,44 +3,104 @@
     {
       "path": "pages/login/index",
       "style": {
-        "navigationBarTitleText": "微信登录"
+        "navigationBarTitleText": "\u767b\u5f55"
+      }
+    },
+    {
+      "path": "pages/common/my",
+      "style": {
+        "navigationBarTitleText": "\u6211\u7684"
       }
     },
     {
       "path": "pages/lawyer/home",
       "style": {
-        "navigationBarTitleText": "案件列表"
+        "navigationBarTitleText": "\u6982\u89c8"
+      }
+    },
+    {
+      "path": "pages/lawyer/cases",
+      "style": {
+        "navigationBarTitleText": "\u6848\u4ef6\u7ba1\u7406"
       }
     },
     {
       "path": "pages/lawyer/create-case",
       "style": {
-        "navigationBarTitleText": "新建案件"
+        "navigationBarTitleText": "\u65b0\u5efa\u6848\u4ef6"
       }
     },
     {
       "path": "pages/lawyer/case-detail",
       "style": {
-        "navigationBarTitleText": "案件详情"
+        "navigationBarTitleText": "\u6848\u4ef6\u8be6\u60c5"
+      }
+    },
+    {
+      "path": "pages/lawyer/clients",
+      "style": {
+        "navigationBarTitleText": "\u5f53\u4e8b\u4eba\u7ba1\u7406"
+      }
+    },
+    {
+      "path": "pages/lawyer/lawyers",
+      "style": {
+        "navigationBarTitleText": "\u5f8b\u5e08\u7ba1\u7406"
+      }
+    },
+    {
+      "path": "pages/lawyer/analytics",
+      "style": {
+        "navigationBarTitleText": "\u5206\u6790\u7ba1\u7406"
       }
     },
     {
       "path": "pages/client/entry",
       "style": {
-        "navigationBarTitleText": "案件邀请"
+        "navigationBarTitleText": "\u9080\u8bf7\u5165\u53e3"
+      }
+    },
+    {
+      "path": "pages/client/case-list",
+      "style": {
+        "navigationBarTitleText": "\u6211\u7684\u6848\u4ef6"
       }
     },
     {
       "path": "pages/client/case-detail",
       "style": {
-        "navigationBarTitleText": "案件进度"
+        "navigationBarTitleText": "\u6848\u4ef6\u8fdb\u5ea6"
+      }
+    },
+    {
+      "path": "pages/client/upload-material",
+      "style": {
+        "navigationBarTitleText": "\u8865\u5145\u6750\u6599"
+      }
+    },
+    {
+      "path": "pages/ai/document-parsing",
+      "style": {
+        "navigationBarTitleText": "\u6587\u6863\u89e3\u6790"
+      }
+    },
+    {
+      "path": "pages/ai/legal-analysis",
+      "style": {
+        "navigationBarTitleText": "\u6cd5\u5f8b\u5206\u6790"
+      }
+    },
+    {
+      "path": "pages/ai/falsification",
+      "style": {
+        "navigationBarTitleText": "\u771f\u4f2a\u6838\u9a8c"
       }
     }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
-    "navigationBarTitleText": "法律案件管理系统",
+    "navigationBarTitleText": "\u6cd5\u5f8b\u6848\u4ef6\u7cfb\u7edf",
     "navigationBarBackgroundColor": "#ffffff",
-    "backgroundColor": "#f4f6f8"
+    "backgroundColor": "#f5f5f7"
   }
 }

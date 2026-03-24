@@ -1,10 +1,17 @@
 from datetime import datetime, timedelta, timezone
 from secrets import token_urlsafe
 
-from fastapi import HTTPException, status
+from fastapi import status
 from sqlalchemy.orm import Session
 
+from app.core.errors import AppError, ErrorCode
 from app.models.invite import Invite
+
+
+def _as_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
 
 
 def create_lawyer_invite(
@@ -15,6 +22,21 @@ def create_lawyer_invite(
     role: str = "lawyer",
     expires_in_days: int = 7,
 ) -> Invite:
+    existing = (
+        db.query(Invite)
+        .filter(
+            Invite.tenant_id == tenant_id,
+            Invite.invited_by_user_id == invited_by_user_id,
+            Invite.role == role,
+            Invite.status == "pending",
+            Invite.expires_at > datetime.now(timezone.utc),
+        )
+        .order_by(Invite.created_at.desc())
+        .first()
+    )
+    if existing is not None:
+        return existing
+
     invite = Invite(
         tenant_id=tenant_id,
         invited_by_user_id=invited_by_user_id,
@@ -32,15 +54,30 @@ def create_lawyer_invite(
 def get_valid_invite(db: Session, *, token: str) -> Invite:
     invite = db.query(Invite).filter(Invite.token == token).first()
     if invite is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="邀请链接不存在。")
+        raise AppError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code=ErrorCode.INVITE_NOT_FOUND,
+            message="邀请链接不存在。",
+            detail="邀请链接不存在。",
+        )
 
     if invite.status != "pending":
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="邀请链接已失效。")
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code=ErrorCode.INVITE_INVALID,
+            message="邀请链接已失效。",
+            detail="邀请链接已失效。",
+        )
 
-    if invite.expires_at < datetime.now(timezone.utc):
+    if _as_utc(invite.expires_at) < datetime.now(timezone.utc):
         invite.status = "expired"
         db.add(invite)
         db.commit()
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="邀请链接已过期。")
+        raise AppError(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code=ErrorCode.INVITE_EXPIRED,
+            message="邀请链接已过期。",
+            detail="邀请链接已过期。",
+        )
 
     return invite

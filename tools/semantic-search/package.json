@@ -1,0 +1,19 @@
+{
+  "name": "semantic-search",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "fc:mcp": "fast-context-mcp",
+    "sg:version": "sg --version",
+    "sg:help": "sg --help"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@ast-grep/cli": "^0.42.0",
+    "@sammysnake/fast-context-mcp": "^1.2.0"
+  }
+}

@@ -1,6 +1,8 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+from app.schemas.validators import validate_password, validate_phone
 
 
 class InviteCreateResponse(BaseModel):
@@ -11,9 +13,20 @@ class InviteCreateResponse(BaseModel):
 
 class InviteRegister(BaseModel):
     token: str
-    phone: str = Field(min_length=6, max_length=20)
-    password: str = Field(min_length=6, max_length=128)
+    phone: str = Field(min_length=11, max_length=20)
+    password: str = Field(min_length=8, max_length=128)
     real_name: str = Field(min_length=1, max_length=100)
+    phone_verification_token: str | None = Field(default=None, min_length=16, max_length=255)
+
+    @field_validator("phone")
+    @classmethod
+    def _validate_phone(cls, value: str) -> str:
+        return validate_phone(value)
+
+    @field_validator("password")
+    @classmethod
+    def _validate_password(cls, value: str) -> str:
+        return validate_password(value)
 
 
 class InviteRead(BaseModel):

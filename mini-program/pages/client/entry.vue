@@ -1,113 +1,57 @@
 <template>
-  <view class="page-container">
+  <view class="page-container fade-in">
+    <view class="card page-hero">
+      <text class="hero-kicker">{{ textMap.kicker }}</text>
+      <text class="page-hero-title">{{ textMap.title }}</text>
+      <text class="page-hero-desc">{{ textMap.description }}</text>
+    </view>
+
     <view class="card">
-      <text class="section-title">当事人进入案件</text>
-      <text class="desc">扫码进入后，先完成微信登录，再绑定手机号，即可查看案件进度和上传材料。</text>
-      <input v-model="phone" class="input" placeholder="手机号" />
-      <text class="form-tip">请输入 6 到 20 位数字。</text>
-      <input v-model="realName" class="input" placeholder="姓名" />
-      <text class="form-tip">请输入真实姓名，最多 100 个字符。</text>
-      <button class="primary-btn" :loading="submitting" @click="submit">微信登录并绑定</button>
+      <text class="section-title">{{ textMap.sectionTitle }}</text>
+      <text class="meta">{{ textMap.sectionDesc }}</text>
+      <view class="toolbar card-toolbar">
+        <button class="toolbar-button toolbar-button-primary action-button" @click="redirectToLogin">
+          {{ textMap.actionText }}
+        </button>
+      </view>
     </view>
   </view>
 </template>
 
 <script>
-import { post } from "../../common/http";
-import { setAccessToken, setUserInfo, setWechatOpenid } from "../../common/auth";
-import { getCurrentUser, redirectByRole } from "../../common/session";
-import { friendlyError, showFormError, validateName, validatePhone } from "../../common/form";
+import { buildLoginPageUrl } from "../../common/role-routing";
 
 export default {
   data() {
     return {
-      token: "",
-      phone: "",
-      realName: "",
-      submitting: false,
+      targetUrl: buildLoginPageUrl(),
+      textMap: {
+        kicker: "\u6848\u4ef6",
+        title: "\u6848\u4ef6\u9080\u8bf7",
+        description: "\u6b63\u5728\u4e3a\u4f60\u8df3\u8f6c\u767b\u5f55\u5e76\u7ed1\u5b9a\u6848\u4ef6\u3002",
+        sectionTitle: "\u7ee7\u7eed\u8fdb\u5165",
+        sectionDesc: "\u5982\u679c\u6ca1\u6709\u81ea\u52a8\u8df3\u8f6c\uff0c\u53ef\u70b9\u51fb\u4e0b\u65b9\u6309\u94ae\u7ee7\u7eed\u3002",
+        actionText: "\u8fdb\u5165\u767b\u5f55\u9875",
+      },
     };
   },
   onLoad(options) {
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      redirectByRole(currentUser);
-      return;
-    }
-    this.token = options.token || "";
+    const token = String(options.token || "").trim();
+    const scene = token ? "client-case" : "";
+    this.targetUrl = buildLoginPageUrl(token, scene);
+    this.redirectToLogin();
   },
   methods: {
-    submit() {
-      const validationMessage =
-        validatePhone(this.phone) ||
-        validateName(this.realName, "姓名");
-      if (validationMessage) {
-        showFormError(validationMessage);
-        return;
-      }
-      this.submitting = true;
-      uni.login({
-        provider: "weixin",
-        success: async ({ code }) => {
-          try {
-            const loginResult = await post("/auth/wx-mini-login", { code });
-            setWechatOpenid(loginResult.wechat_openid);
-            const bindResult = await post("/auth/wx-mini-bind", {
-              wechat_openid: loginResult.wechat_openid,
-              phone: this.phone,
-              real_name: this.realName,
-              role: "client",
-              case_invite_token: this.token,
-            });
-            setAccessToken(bindResult.access_token);
-            setUserInfo(bindResult.user);
-            redirectByRole(bindResult.user);
-          } catch (error) {
-            showFormError(friendlyError(error, "进入案件失败"));
-          } finally {
-            this.submitting = false;
-          }
-        },
-        fail: () => {
-          this.submitting = false;
-          showFormError("微信登录失败");
-        },
-      });
+    redirectToLogin() {
+      uni.redirectTo({ url: this.targetUrl });
     },
   },
 };
 </script>
 
 <style scoped>
-.desc {
-  display: block;
-  line-height: 1.7;
-  color: #475569;
-  margin-bottom: 24rpx;
-}
-
-.form-tip {
-  display: block;
-  margin: -6rpx 0 18rpx;
-  color: #64748b;
-  font-size: 24rpx;
-  line-height: 1.5;
-}
-
-.input {
+.card-toolbar,
+.action-button {
   width: 100%;
-  height: 88rpx;
-  border-radius: 18rpx;
-  background: #f8fafc;
-  padding: 0 24rpx;
-  margin-bottom: 20rpx;
-  box-sizing: border-box;
-}
-
-.primary-btn {
-  width: 100%;
-  height: 88rpx;
-  border-radius: 18rpx;
-  background: #0f766e;
-  color: #fff;
 }
 </style>

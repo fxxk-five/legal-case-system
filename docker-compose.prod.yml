@@ -1,0 +1,176 @@
+services:
+  postgres:
+    image: postgres:17
+    container_name: legal-postgres
+    restart: unless-stopped
+    env_file:
+      - ./deploy/backend.env.tencent.prod.example
+      - path: ./deploy/backend.env.tencent.prod
+        required: false
+    expose:
+      - "5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-legal_case} -h 127.0.0.1 -p 5432 || exit 1",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: legal-redis
+    restart: unless-stopped
+    expose:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  backend:
+    build:
+      context: ./backend
+    container_name: legal-backend
+    restart: unless-stopped
+    env_file:
+      - ./deploy/backend.env.tencent.prod.example
+      - path: ./deploy/backend.env.tencent.prod
+        required: false
+    environment:
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: 5432
+      QUEUE_DRIVER: db
+      AI_DB_QUEUE_EAGER: "false"
+      REPORT_SERVICE_BASE_URL: http://report-service:3001
+      STORAGE_BACKEND: cos
+      STORAGE_DIRECT_UPLOAD_ENABLED: "false"
+      STORAGE_DELETE_POLICY: archive
+      STORAGE_RETENTION_PREFIX: _retained
+      STORAGE_PENDING_PREFIX: _pending
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      report-service:
+        condition: service_healthy
+    expose:
+      - "8000"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "python",
+          "-c",
+          "import sys,urllib.request;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/v1/health/live', timeout=2).status==200 else 1)",
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  ai-worker:
+    build:
+      context: ./backend
+    container_name: legal-ai-worker
+    env_file:
+      - ./deploy/backend.env.tencent.prod.example
+      - path: ./deploy/backend.env.tencent.prod
+        required: false
+    environment:
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: 5432
+      QUEUE_DRIVER: db
+      AI_DB_QUEUE_EAGER: "false"
+      AI_DB_QUEUE_WORKER_ID: legal-ai-worker
+      AI_DB_QUEUE_HEARTBEAT_FILE: /tmp/legal-ai-worker-heartbeat.json
+      REPORT_SERVICE_BASE_URL: http://report-service:3001
+      STORAGE_BACKEND: cos
+      STORAGE_DIRECT_UPLOAD_ENABLED: "false"
+      STORAGE_DELETE_POLICY: archive
+      STORAGE_RETENTION_PREFIX: _retained
+      STORAGE_PENDING_PREFIX: _pending
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      report-service:
+        condition: service_healthy
+    command: ["python", "-m", "app.scripts.ai_worker", "--poll-seconds", "2", "--batch-size", "1"]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-m", "app.scripts.ai_worker", "--healthcheck"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  report-service:
+    build:
+      context: ./report-service
+    container_name: legal-report-service
+    restart: unless-stopped
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:3001/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+  web-frontend:
+    build:
+      context: ./web-frontend
+      args:
+        VITE_API_BASE_URL: /api/v1
+    container_name: legal-web
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    expose:
+      - "80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1/ >/dev/null 2>&1 || exit 1"]
+      interval: 15s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: legal-nginx
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+      web-frontend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./deploy/nginx/certs:/etc/nginx/certs:ro
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "wget --no-check-certificate -q -O - https://127.0.0.1/api/v1/health/ready >/dev/null 2>&1 || exit 1",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  postgres_data:

@@ -27,10 +27,35 @@ services:
     depends_on:
       - postgres
       - redis
+      - report-service
     volumes:
       - ./backend/storage:/app/storage
     ports:
       - "8000:8000"
+
+  ai-worker:
+    build:
+      context: ./backend
+    container_name: legal-ai-worker
+    env_file:
+      - ./backend/.env
+    environment:
+      POSTGRES_SERVER: postgres
+      POSTGRES_PORT: 5432
+    depends_on:
+      - postgres
+      - redis
+      - report-service
+    volumes:
+      - ./backend/storage:/app/storage
+    command: ["python", "-m", "app.scripts.ai_worker", "--poll-seconds", "2", "--batch-size", "1"]
+
+  report-service:
+    build:
+      context: ./report-service
+    container_name: legal-report-service
+    expose:
+      - "3001"
 
   web-frontend:
     build:

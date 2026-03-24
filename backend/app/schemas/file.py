@@ -12,9 +12,13 @@ class FileRead(BaseModel):
     tenant_id: int
     case_id: int | None
     uploader_id: int | None
+    uploader_role: str
     file_name: str
-    download_url: str
+    download_url: str | None = None
+    can_download: bool = True
     file_type: str
+    description: str | None = None
+    parse_status: str
     created_at: datetime
     uploader: UserSummary | None = None
 
@@ -34,4 +38,12 @@ class FileUploadPolicyRead(BaseModel):
     form_fields: dict[str, str]
     file_field_name: str
     storage_key: str
+    completion_url: str | None = None
+    completion_token: str | None = None
+    expires_in_seconds: int | None = None
     backend: str
+
+
+class FileUploadCompleteRequest(BaseModel):
+    completion_token: str
+    description: str | None = None

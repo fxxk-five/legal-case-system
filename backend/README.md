@@ -10,7 +10,7 @@
 - 本地文件上传、文件列表、下载
 - 通知查询与已读
 - 统计面板接口
-- 微信小程序 mock 登录、手机号绑定、案件邀请进入
+- 微信小程序直登、手机号授权、会话撤销、案件邀请进入
 
 ## 目录结构
 
@@ -98,8 +98,19 @@ WECHAT_MINIAPP_MOCK_LOGIN=true
 相关接口：
 
 - `POST /api/v1/auth/wx-mini-login`
-- `POST /api/v1/auth/wx-mini-bind`
+- `POST /api/v1/auth/wx-mini-phone-login`
+- `POST /api/v1/auth/wx-mini-bind-existing`
+- `POST /api/v1/auth/logout`
 - `GET /api/v1/cases/{id}/invite-qrcode`
+
+邀请路径规则：
+
+- 案件邀请：`pages/login/index?scene=client-case&token=...`
+- 机构律师邀请注册：`pages/login/index?token=...`
+
+详细步骤见：
+
+- `docs/wechat-mini-direct-login-runbook.md`
 
 ## 下一步重点
 

@@ -1,6 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
+from app.core.errors import AppError, ErrorCode
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user
 from app.models.notification import Notification
@@ -46,7 +47,12 @@ def mark_notification_read(
         .first()
     )
     if notification is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="通知不存在。")
+        raise AppError(
+            status_code=status.HTTP_404_NOT_FOUND,
+            code=ErrorCode.NOTIFICATION_NOT_FOUND,
+            message="通知不存在。",
+            detail="通知不存在。",
+        )
 
     notification.is_read = True
     db.add(notification)

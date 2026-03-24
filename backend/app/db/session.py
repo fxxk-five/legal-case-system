@@ -18,8 +18,15 @@ def get_db() -> Generator[Session, None, None]:
         db.close()
 
 
-def set_current_tenant_context(db: Session, tenant_id: int) -> None:
+def set_current_tenant_context(db: Session, tenant_id: int, *, is_super_admin: bool = False) -> None:
+    bind = db.get_bind()
+    if bind is None or bind.dialect.name != "postgresql":
+        return
     db.execute(
         text("SELECT set_config('app.current_tenant', :tenant_id, true)"),
         {"tenant_id": str(tenant_id)},
+    )
+    db.execute(
+        text("SELECT set_config('app.is_super_admin', :is_super_admin, true)"),
+        {"is_super_admin": "1" if is_super_admin else "0"},
     )

@@ -11,6 +11,13 @@ function buildHeaders() {
     : {};
 }
 
+function buildApiUrl(path) {
+  if (String(path || "").startsWith("http")) {
+    return path;
+  }
+  return `${config.apiBaseUrl}${path}`;
+}
+
 async function buildFileUrl(file) {
   const access = await get(`/files/${file.id}/access-link`);
   if (access.access_url.startsWith("http")) {
@@ -19,8 +26,24 @@ async function buildFileUrl(file) {
   return `${config.apiBaseUrl.replace(/\/api\/v1$/, "")}${access.access_url}`;
 }
 
-async function downloadToTemp(file) {
-  const url = await buildFileUrl(file);
+async function buildLatestReportUrl(caseId) {
+  const access = await get(`/cases/${caseId}/report/access-link`);
+  if (access.access_url.startsWith("http")) {
+    return access.access_url;
+  }
+  return `${config.apiBaseUrl.replace(/\/api\/v1$/, "")}${access.access_url}`;
+}
+
+async function buildReportVersionUrl(caseId, reportName) {
+  const safeReportName = encodeURIComponent(reportName);
+  const access = await get(`/cases/${caseId}/reports/${safeReportName}/access-link`);
+  if (access.access_url.startsWith("http")) {
+    return access.access_url;
+  }
+  return `${config.apiBaseUrl.replace(/\/api\/v1$/, "")}${access.access_url}`;
+}
+
+function downloadUrlToTemp(url) {
   return new Promise((resolve, reject) => {
     uni.downloadFile({
       url,
@@ -35,6 +58,11 @@ async function downloadToTemp(file) {
       fail: (error) => reject(error),
     });
   });
+}
+
+async function downloadToTemp(file) {
+  const url = await buildFileUrl(file);
+  return downloadUrlToTemp(url);
 }
 
 export async function previewCaseFile(file) {
@@ -58,6 +86,32 @@ export async function downloadCaseFile(file) {
         uni.showToast({ title: "文件已保存", icon: "success" });
         resolve(true);
       },
+      fail: reject,
+    });
+  });
+}
+
+export async function openLatestCaseReport(caseId) {
+  const reportUrl = await buildLatestReportUrl(caseId);
+  const tempFilePath = await downloadUrlToTemp(reportUrl);
+  return new Promise((resolve, reject) => {
+    uni.openDocument({
+      filePath: tempFilePath,
+      showMenu: true,
+      success: resolve,
+      fail: reject,
+    });
+  });
+}
+
+export async function openCaseReportVersion(caseId, reportName) {
+  const reportUrl = await buildReportVersionUrl(caseId, reportName);
+  const tempFilePath = await downloadUrlToTemp(reportUrl);
+  return new Promise((resolve, reject) => {
+    uni.openDocument({
+      filePath: tempFilePath,
+      showMenu: true,
+      success: resolve,
       fail: reject,
     });
   });

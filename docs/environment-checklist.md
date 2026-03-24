@@ -38,6 +38,8 @@
 
 - 本地演示阶段可以只保留 `WECHAT_MINIAPP_MOCK_LOGIN=true`
 - 真机联调时，再填写真实 `AppID/AppSecret`
+- 当前推荐：
+  - `WECHAT_MINIAPP_CLIENT_ENTRY_PAGE=pages/login/index`
 
 ## Web 前端
 
