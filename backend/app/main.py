@@ -56,6 +56,16 @@ def _build_error_payload(
     }
 
 
+def _sanitize_error_detail(detail: object | None, fallback_message: str) -> object:
+    if detail is None:
+        return fallback_message
+    if isinstance(detail, (str, int, float, bool)):
+        return detail
+    if isinstance(detail, (dict, list)):
+        return detail
+    return fallback_message
+
+
 @app.middleware("http")
 async def request_trace_middleware(request: Request, call_next):
     request_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
@@ -80,7 +90,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         request=request,
         code=exc.code,
         message=exc.message,
-        detail=exc.detail if exc.detail is not None else exc.message,
+        detail=_sanitize_error_detail(exc.detail, exc.message),
     )
     return JSONResponse(status_code=exc.status_code, content=payload)
 
@@ -89,8 +99,13 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 async def http_error_handler(request: Request, exc: HTTPException) -> JSONResponse:
     code = map_http_status_to_code(exc.status_code)
     detail = exc.detail
-    message = detail if isinstance(detail, str) else "请求处理失败。"
-    payload = _build_error_payload(request=request, code=code, message=message, detail=detail)
+    message = detail if isinstance(detail, str) else "Request handling failed."
+    payload = _build_error_payload(
+        request=request,
+        code=code,
+        message=message,
+        detail=_sanitize_error_detail(detail, message),
+    )
     return JSONResponse(status_code=exc.status_code, content=payload, headers=exc.headers)
 
 
@@ -105,7 +120,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     payload = _build_error_payload(
         request=request,
         code=ErrorCode.VALIDATION_ERROR,
-        message="请求参数校验失败。",
+        message="Request validation failed.",
         detail=jsonable_encoder(errors),
     )
     return JSONResponse(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=payload)
@@ -122,8 +137,8 @@ async def unhandled_error_handler(request: Request, exc: Exception) -> JSONRespo
     payload = _build_error_payload(
         request=request,
         code=ErrorCode.INTERNAL_ERROR,
-        message="服务器内部错误。",
-        detail="服务器内部错误。",
+        message="Internal server error.",
+        detail="Internal server error.",
     )
     return JSONResponse(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, content=payload)
 

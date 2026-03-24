@@ -80,3 +80,20 @@
 2. 按 `docs/v3-dual-end-parity-matrix.md` 逐项勾验 Web vs Mini 的角色、页面、接口和权限。
 3. 同步完成微信公众平台配置、合法域名与 `AppID/AppSecret` 落地，再执行 `scripts/smoke_wechat_direct_login.py` + 真机登录回归。
 4. 若联调再暴露平台差异，优先修补小程序真机文件选择、上传 MIME、预览/下载兼容问题。
+
+## 7. 安全加固波次 S1（2026-03-24）
+
+| Task ID | 状态 | 说明 |
+| --- | --- | --- |
+| S1-01 环境安全基线校验 | Completed | 已在 `config.py` 增加生产/准生产环境校验：禁止默认 `SECRET_KEY`、禁止 `localhost` CORS、禁止 `AI_MOCK_MODE=True`。 |
+| S1-02 Access Token 绑定 Session | Completed | 已在 `dependencies/auth.py` 按 `sid` 回查 `auth_sessions`，并在 `logout` 默认撤销当前 Access Session。 |
+| S1-03 Mini 来源判定统一 | Completed | `routes_auth` 与 `dependencies/auth` 已统一为严格的 mini 请求头判定。 |
+| S1-04 租户上下文跨事务重放 | Completed | `db/session.py` 已把租户上下文写入 `Session.info`，并在每个新事务开始时自动重放。 |
+| S1-05 角色别名查询统一 | Completed | `role_values_for_query()` 已替换多处硬编码 `User.role.in_(["lawyer", "tenant_admin"])`。 |
+| S1-06 文件访问入口加固 | Completed | 文件列表改为返回 `access-link`，本地访问令牌改为一次性消费，新增 `file_access_grants` 表。 |
+| S1-07 AI 队列默认非阻塞 | Completed | `AI_DB_QUEUE_EAGER` 默认关闭，新增 `AI_DB_QUEUE_EAGER_BLOCKING` 控制仅测试/显式场景下阻塞执行。 |
+| S1-08 AI 失败信息脱敏 | Completed | AI 任务对外只返回通用失败信息，不再透传原始异常文本。 |
+| S1-09 短信 IP 限流 | Backlog | 当前仍只有手机号维度限流，需补充 IP/设备维度。 |
+| S1-10 微信标识密文存储 | Backlog | 需要设计“密文列 + 检索哈希列”迁移方案。 |
+| S1-11 注册租户显式选择 | Backlog | 需要移除单租户自动命中逻辑并补 UI/API 承接。 |
+| S1-12 Async ORM 迁移评估 | Backlog | 作为架构级改造单独立项，不在本轮直接硬切。 |

@@ -10,6 +10,17 @@
       "urlCheck": false,
       "es6": true
     },
+    "plugins": {
+      "WechatSI": {
+        "version": "0.3.4",
+        "provider": "wx069ba97219f66d99"
+      }
+    },
+    "permission": {
+      "scope.record": {
+        "desc": "用于语音输入案件补充说明"
+      }
+    },
     "usingComponents": true
   }
 }

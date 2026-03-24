@@ -30,6 +30,7 @@ def reset_runtime_settings():
         "AI_MOCK_MODE": settings.AI_MOCK_MODE,
         "QUEUE_DRIVER": settings.QUEUE_DRIVER,
         "AI_DB_QUEUE_EAGER": settings.AI_DB_QUEUE_EAGER,
+        "AI_DB_QUEUE_EAGER_BLOCKING": settings.AI_DB_QUEUE_EAGER_BLOCKING,
         "AI_DB_QUEUE_MAX_RETRIES": settings.AI_DB_QUEUE_MAX_RETRIES,
         "AI_DB_QUEUE_RETRY_BACKOFF_SECONDS": settings.AI_DB_QUEUE_RETRY_BACKOFF_SECONDS,
         "AI_DB_QUEUE_STALE_TASK_SECONDS": settings.AI_DB_QUEUE_STALE_TASK_SECONDS,
@@ -48,6 +49,7 @@ def reset_runtime_settings():
     settings.AI_MOCK_MODE = True
     settings.QUEUE_DRIVER = "db"
     settings.AI_DB_QUEUE_EAGER = True
+    settings.AI_DB_QUEUE_EAGER_BLOCKING = True
     settings.AI_DB_QUEUE_MAX_RETRIES = 3
     settings.AI_DB_QUEUE_RETRY_BACKOFF_SECONDS = 30
     settings.AI_DB_QUEUE_STALE_TASK_SECONDS = 900

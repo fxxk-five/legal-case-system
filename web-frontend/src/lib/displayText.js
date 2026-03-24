@@ -1,4 +1,5 @@
 const roleMap = {
+  super_admin: '超级管理员',
   tenant_admin: '机构管理员',
   lawyer: '律师',
   client: '当事人',
@@ -26,9 +27,26 @@ const tenantTypeMap = {
 }
 
 const tenantStatusMap = {
+  0: '已创建',
+  1: '正常',
+  2: '已停用',
+  3: '已归档',
+  created: '已创建',
   active: '正常',
-  pending: '待审核',
   disabled: '已停用',
+  archived: '已归档',
+  pending: '待审核',
+}
+
+const userStatusMap = {
+  0: '待审批',
+  1: '正常',
+  2: '已停用',
+  3: '已拒绝',
+  pending: '待审批',
+  active: '正常',
+  disabled: '已停用',
+  rejected: '已拒绝',
 }
 
 export function formatRole(role) {
@@ -49,6 +67,10 @@ export function formatTenantType(type) {
 
 export function formatTenantStatus(status) {
   return tenantStatusMap[status] || status || '未设置'
+}
+
+export function formatUserStatus(status) {
+  return userStatusMap[status] || status || '未设置'
 }
 
 export function formatText(value, fallback = '未填写') {

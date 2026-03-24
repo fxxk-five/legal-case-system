@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="page-container fade-in">
     <view class="card page-hero">
       <text class="page-hero-title">补充材料</text>
@@ -40,6 +40,21 @@
     </view>
 
     <view class="card">
+      <case-remark-input
+        title="补充说明"
+        hint="会同步给律师和 AI，帮助理解材料背景"
+        placeholder="如有关键时间点、沟通背景、你的诉求或需要律师注意的情况，可在此补充..."
+        submit-label="保存说明"
+        existing-label="已保存说明"
+        :show-voice="true"
+        :max-length="2000"
+        :existing-remark="caseInfo.client_remark"
+        :submit-handler="handleRemarkSubmit"
+        success-text="说明已保存"
+      />
+    </view>
+
+    <view class="card">
       <text class="section-title">关键证据提示</text>
       <text class="meta">- 借贷类：借条、转账记录、催收记录</text>
       <text class="meta">- 劳动类：劳动合同、工资流水、考勤记录</text>
@@ -57,8 +72,10 @@
 </template>
 
 <script>
+import CaseRemarkInput from "../../components/CaseRemarkInput.vue";
 import ClientTabBar from "../../components/ClientTabBar.vue";
-import { get, upload } from "../../common/http";
+import { appendClientRemarkPreview, getCaseDetail, getRemarkValue, updateClientRemark } from "../../common/cases";
+import { upload } from "../../common/http";
 import { friendlyError, showFormError } from "../../common/form";
 import { buildClientCaseDetailUrl } from "../../common/role-routing";
 import { ensureClientAccess, redirectByRole } from "../../common/session";
@@ -95,12 +112,16 @@ function buildFileItem(file, index, sourceText) {
 
 export default {
   components: {
+    CaseRemarkInput,
     ClientTabBar,
   },
   data() {
     return {
       caseId: 0,
       caseTitle: "-",
+      caseInfo: {
+        client_remark: "",
+      },
       submitting: false,
       selectedFiles: [],
     };
@@ -111,7 +132,7 @@ export default {
       return;
     }
 
-    const caseId = Number(options.caseId || 0);
+    const caseId = Number(options.caseId || options.id || 0);
     if (!caseId) {
       showFormError("缺少案件参数");
       redirectByRole(user);
@@ -123,11 +144,29 @@ export default {
   methods: {
     async loadCase() {
       try {
-        const detail = await get(`/cases/${this.caseId}`);
+        const detail = await getCaseDetail(this.caseId);
+        this.caseInfo = {
+          client_remark: "",
+          ...(detail || {}),
+        };
         this.caseTitle = detail?.title || `案件 #${this.caseId}`;
       } catch (error) {
         showFormError(friendlyError(error, "获取案件信息失败"));
       }
+    },
+    async handleRemarkSubmit(text) {
+      const detail = await updateClientRemark(this.caseId, text);
+      const nextRemark =
+        getRemarkValue(detail, "client_remark") ||
+        appendClientRemarkPreview(this.caseInfo.client_remark, text);
+
+      this.caseInfo = {
+        ...(this.caseInfo || {}),
+        ...(detail || {}),
+        client_remark: nextRemark,
+      };
+      this.caseTitle = this.caseInfo.title || this.caseTitle;
+      return detail;
     },
     appendFiles(files, sourceText) {
       if (!Array.isArray(files) || !files.length) {
@@ -274,10 +313,6 @@ export default {
 .action-button,
 .submit-button {
   width: 100%;
-}
-
-.sms-button {
-  width: 240rpx;
 }
 
 .file-card {

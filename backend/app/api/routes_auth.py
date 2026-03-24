@@ -7,6 +7,7 @@ from fastapi.responses import Response as FastAPIResponse
 from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
+from app.core.client_source import is_mini_program_request as is_mini_program_request_source
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.core.roles import normalize_role
@@ -156,11 +157,7 @@ def _auth_required(message: str = "登录状态无效，请重新登录。") -> 
 
 
 def _is_mini_program_request(request: Request | None) -> bool:
-    if request is None:
-        return False
-    platform = (request.headers.get("X-Client-Platform") or "").strip().lower()
-    source = (request.headers.get("X-Client-Source") or "").strip().lower()
-    return platform == "mini-program" or source in {"wx-mini", "mini-program"}
+    return is_mini_program_request_source(request)
 
 
 def _resolve_login_channel(request: Request | None, *, prefer_wechat: bool = False) -> str:
@@ -789,6 +786,25 @@ def logout(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Response:
+    revoked_any = False
+    current_session_id = getattr(current_user, "_auth_session_id", None)
+    if isinstance(current_session_id, int):
+        current_session = (
+            db.query(AuthSession)
+            .filter(
+                AuthSession.id == current_session_id,
+                AuthSession.user_id == current_user.id,
+                AuthSession.tenant_id == current_user.tenant_id,
+            )
+            .first()
+        )
+        if current_session is not None and not current_session.is_revoked:
+            current_session.is_revoked = True
+            current_session.revoked_at = datetime.now(timezone.utc)
+            current_session.last_used_at = datetime.now(timezone.utc)
+            db.add(current_session)
+            revoked_any = True
+
     refresh_token_value = (payload.refresh_token if payload else "") or ""
     if refresh_token_value:
         try:
@@ -812,12 +828,19 @@ def logout(
                     auth_session.revoked_at = datetime.now(timezone.utc)
                     auth_session.last_used_at = datetime.now(timezone.utc)
                     db.add(auth_session)
-                    db.commit()
+                    revoked_any = True
+    if revoked_any:
+        db.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/wx-mini-login", response_model=WechatMiniLoginResult)
-def wx_mini_login(login_in: WechatMiniLogin, request: Request, db: Session = Depends(get_db)) -> WechatMiniLoginResult:
+def wx_mini_login(
+    login_in: WechatMiniLogin,
+    request: Request,
+    _: None = Depends(require_mini_program_source),
+    db: Session = Depends(get_db),
+) -> WechatMiniLoginResult:
     identity = exchange_code_for_identity(login_in.code)
     user = _find_user_by_wechat_identity(db, identity=identity)
     invite_mode = _has_wechat_invite_context(
@@ -850,6 +873,7 @@ def wx_mini_login(login_in: WechatMiniLogin, request: Request, db: Session = Dep
 def wx_mini_phone_login(
     login_in: WechatMiniPhoneLogin,
     request: Request,
+    _: None = Depends(require_mini_program_source),
     db: Session = Depends(get_db),
 ) -> WechatMiniLoginResult:
     identity = decode_wechat_login_ticket(login_in.wx_session_ticket)
@@ -976,6 +1000,7 @@ def wx_mini_phone_login(
 def wx_mini_bind_existing(
     bind_in: WechatMiniBindExisting,
     request: Request,
+    _: None = Depends(require_mini_program_source),
     db: Session = Depends(get_db),
 ) -> WechatMiniLoginResult:
     identity = decode_wechat_login_ticket(bind_in.wx_session_ticket)
@@ -1020,8 +1045,13 @@ def wx_mini_bind_existing(
 
 
 @router.post("/wx-mini-bind", response_model=WechatMiniLoginResult)
-def wx_mini_bind(bind_in: WechatMiniBind, request: Request, db: Session = Depends(get_db)) -> WechatMiniLoginResult:
-    identity = WechatMiniIdentity(openid=bind_in.wechat_openid)
+def wx_mini_bind(
+    bind_in: WechatMiniBind,
+    request: Request,
+    _: None = Depends(require_mini_program_source),
+    db: Session = Depends(get_db),
+) -> WechatMiniLoginResult:
+    identity = decode_wechat_login_ticket(bind_in.wx_session_ticket)
     existing_user = db.query(User).filter(User.tenant_id == bind_in.tenant_id, User.phone == bind_in.phone).first() if bind_in.tenant_id else None
     if existing_user is None and bind_in.tenant_code:
         tenant = _resolve_tenant_by_code(db, bind_in.tenant_code)

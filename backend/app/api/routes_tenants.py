@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, ErrorCode
-from app.core.roles import normalize_role
+from app.core.roles import normalize_role, role_values_for_query
 from app.core.security import create_access_token
 from app.core.statuses import (
     TenantStatus,
@@ -473,7 +473,7 @@ def approve_tenant_member(
         .filter(
             User.id == user_id,
             User.tenant_id == current_user.tenant_id,
-            User.role.in_(["lawyer", "tenant_admin"]),
+            User.role.in_(role_values_for_query("lawyer", "tenant_admin")),
         )
         .first()
     )

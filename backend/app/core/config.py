@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
+    APP_ENV: str = "development"
     PROJECT_NAME: str = "Legal Case System"
     VERSION: str = "0.1.0"
     API_V1_STR: str = "/api/v1"
@@ -15,6 +16,7 @@ class Settings(BaseSettings):
 
     SECRET_KEY: str = "change-me-in-production"
     ALGORITHM: str = "HS256"
+    BCRYPT_ROUNDS: int = 13
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
     REFRESH_TOKEN_EXPIRE_DAYS: int = 14
     WECHAT_MINIAPP_APP_ID: str = ""
@@ -82,7 +84,8 @@ class Settings(BaseSettings):
     AI_TOKEN_COST_PER_1K: float = 0.03
     AI_DAILY_TOKEN_LIMIT: int = 100000
     QUEUE_DRIVER: str = "db"
-    AI_DB_QUEUE_EAGER: bool = True
+    AI_DB_QUEUE_EAGER: bool = False
+    AI_DB_QUEUE_EAGER_BLOCKING: bool = False
     AI_DB_QUEUE_POLL_SECONDS: float = 2.0
     AI_DB_QUEUE_MAX_RETRIES: int = 3
     AI_DB_QUEUE_RETRY_BACKOFF_SECONDS: int = 30
@@ -135,8 +138,19 @@ class Settings(BaseSettings):
     def EFFECTIVE_AI_MODEL(self) -> str:
         return (self.AI_MODEL or self.OPENAI_MODEL).strip()
 
+    @computed_field
+    @property
+    def IS_PRODUCTION(self) -> bool:
+        return (self.APP_ENV or "").strip().lower() in {"prod", "production", "staging"}
+
     @model_validator(mode="after")
     def validate_ai_runtime_config(self) -> "Settings":
+        if self.IS_PRODUCTION and self.SECRET_KEY == "change-me-in-production":
+            raise ValueError("SECRET_KEY must be overridden outside development and test environments")
+        if self.IS_PRODUCTION and any("localhost" in origin or "127.0.0.1" in origin for origin in self.BACKEND_CORS_ORIGINS):
+            raise ValueError("BACKEND_CORS_ORIGINS must not include localhost origins outside development and test environments")
+        if self.IS_PRODUCTION and self.AI_ENABLED and self.AI_MOCK_MODE:
+            raise ValueError("AI_MOCK_MODE must be disabled outside development and test environments")
         if not self.AI_ENABLED or self.AI_MOCK_MODE:
             return self
         if not self.OPENAI_API_KEY.strip():

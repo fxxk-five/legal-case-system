@@ -186,7 +186,7 @@ class WechatMiniBindExisting(BaseModel):
 
 
 class WechatMiniBind(BaseModel):
-    wechat_openid: str = Field(min_length=6, max_length=100)
+    wx_session_ticket: str = Field(min_length=16, max_length=2048)
     phone: str = Field(min_length=11, max_length=20)
     password: str | None = Field(default=None, min_length=8, max_length=128)
     real_name: str | None = Field(default=None, min_length=1, max_length=100)

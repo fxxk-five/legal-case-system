@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
+from typing import Any
 
 from fastapi import status
 
@@ -53,12 +54,15 @@ class ErrorCode(str, Enum):
     DATABASE_ERROR = "DATABASE_ERROR"
 
 
+ErrorDetail = str | dict[str, Any] | list[Any] | None
+
+
 @dataclass(slots=True)
 class AppError(Exception):
     status_code: int
     code: ErrorCode
     message: str
-    detail: object | None = None
+    detail: ErrorDetail = None
 
     def __str__(self) -> str:
         return f"{self.code}: {self.message}"

@@ -8,6 +8,7 @@ from app.models.case_flow import CaseFlow
 from app.models.case_number_sequence import CaseNumberSequence
 from app.models.falsification import FalsificationRecord
 from app.models.file import File
+from app.models.file_access_grant import FileAccessGrant
 from app.models.invite import Invite
 from app.models.notification import Notification
 from app.models.sms_code import SmsCode
@@ -23,6 +24,7 @@ __all__ = [
     "CaseFlow",
     "CaseNumberSequence",
     "File",
+    "FileAccessGrant",
     "Invite",
     "Notification",
     "SmsCode",

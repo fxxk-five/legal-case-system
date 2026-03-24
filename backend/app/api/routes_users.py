@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, ErrorCode
+from app.core.roles import role_values_for_query
 from app.core.statuses import UserStatus, can_transition_user_status
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user, require_super_admin, require_tenant_admin
@@ -29,7 +30,7 @@ def list_lawyers(
         db.query(User)
         .filter(
             User.tenant_id == current_user.tenant_id,
-            User.role.in_(["lawyer", "tenant_admin"]),
+            User.role.in_(role_values_for_query("lawyer", "tenant_admin")),
         )
         .order_by(User.created_at.desc())
         .all()
@@ -78,7 +79,7 @@ def list_pending_users(
         db.query(User)
         .filter(
             User.tenant_id == current_user.tenant_id,
-            User.role.in_(["lawyer", "tenant_admin"]),
+            User.role.in_(role_values_for_query("lawyer", "tenant_admin")),
             User.status == int(UserStatus.PENDING_APPROVAL),
         )
         .order_by(User.created_at.desc())

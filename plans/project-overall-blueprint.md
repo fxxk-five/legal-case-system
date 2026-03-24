@@ -1088,3 +1088,34 @@ Web 前端：
 4. 最后统一视觉系统、状态反馈、空态/错误态、登录与 token 续期体验。
 5. 完成 HBuilderX、微信开发者工具、真机的三端验收后，才进入云部署联调。
 
+
+---
+
+## 24. 安全加固波次 S1（2026-03-24）
+
+### 24.1 本轮已落地
+
+- 环境安全基线：生产/准生产环境禁止默认 `SECRET_KEY`、禁止 `localhost` CORS、禁止 `AI_MOCK_MODE=True`。
+- 鉴权收敛：Access Token 在生产环境要求携带 `sid`，并在鉴权阶段回查 `auth_sessions`，登出时默认撤销当前会话。
+- 小程序来源校验统一：`routes_auth` 与 `dependencies/auth` 统一使用同一套 `X-Client-Platform + X-Client-Source` 判定逻辑。
+- 租户上下文修正：租户上下文写入 `Session.info`，并在每个新事务开始时自动重放，避免 `commit` 后 RLS 上下文丢失。
+- 角色别名查询收敛：`lawyer / org_lawyer / solo_lawyer` 统一通过查询 helper 展开，避免组织律师被漏匹配。
+- 文件访问加固：文件列表不再暴露固定 `/download` 入口，改为 `access-link`；本地存储下载令牌改为一次性消费，防止重复重放。
+- AI 任务运行基线：`AI_DB_QUEUE_EAGER` 默认关闭；显式开启时默认改为后台执行，仅在 `AI_DB_QUEUE_EAGER_BLOCKING=True` 时允许阻塞式内联执行。
+- AI 错误脱敏：任务失败信息对前端统一回落为通用失败信息，不再直接回显原始异常内容。
+
+### 24.2 已确认的误报 / 非阻断项
+
+- `config.py` 中 `DATABASE_URL` 已包含 `@{POSTGRES_SERVER}`，当前代码不存在“缺少主机名”的问题。
+- `OPENAI_MODEL = "gpt-5.4"` 不作为本轮问题处理；该项需以官方模型文档为准。
+- `TokenPayload.tenant_id` 已由 Pydantic 做整数解析，不属于当前阻断性问题。
+- `ai_provider_settings / ai_prompt_settings` 当前已有 API Schema 约束，本轮不再重复加一层模型内校验。
+- `_process_task_by_id` 使用 `with self.session_factory() as db` 在当前 SQLAlchemy 版本可正常工作，不将其视为独立漏洞。
+
+### 24.3 下阶段继续排期
+
+- S1-TODO-01：短信发送/校验补充 IP 维度限流与风控审计。
+- S1-TODO-02：`wechat_openid / unionid` 改为“密文存储 + 哈希检索”双轨方案。
+- S1-TODO-03：`resolve_tenant_for_registration` 去除“单租户自动命中”隐式行为，改为显式租户选择。
+- S1-TODO-04：补充“系统生成密码后需重置密码”的首登流程标记。
+- S1-TODO-05：评估 SQLAlchemy `AsyncSession` 迁移与同步 ORM 退出计划。

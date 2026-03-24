@@ -14,7 +14,7 @@ from app.api.pagination import resolve_pagination_params
 from app.core.errors import AppError, ErrorCode
 from app.core.config import settings
 from app.core.legal_types import normalize_legal_type
-from app.core.roles import can_manage_case_role, normalize_role
+from app.core.roles import can_manage_case_role, is_tenant_admin_role, normalize_role, role_values_for_query
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user, require_client_mini_program_source, require_mini_program_source
 from app.models.ai_analysis import AIAnalysisResult
@@ -846,7 +846,7 @@ def update_case(
 ) -> Case:
     case = _get_case_or_404(db, case_id=case_id, current_user=current_user)
     is_owner = case.assigned_lawyer_id == current_user.id
-    is_admin = current_user.is_tenant_admin or normalize_role(current_user.role) == "tenant_admin"
+    is_admin = is_tenant_admin_role(current_user.role, is_tenant_admin=current_user.is_tenant_admin)
     if not (is_owner or is_admin):
         raise AppError(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -869,7 +869,7 @@ def update_case(
             .filter(
                 User.id == case_in.assigned_lawyer_id,
                 User.tenant_id == current_user.tenant_id,
-                User.role.in_(["lawyer", "tenant_admin"]),
+                User.role.in_(role_values_for_query("lawyer", "tenant_admin")),
             )
             .first()
         )

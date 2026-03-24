@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 
 def _auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
@@ -65,3 +67,28 @@ def test_upload_file_accepts_allowed_pdf(client, seeded_data, monkeypatch, tmp_p
     )
     assert list_resp.status_code == 200
     assert any(item["id"] == upload_payload["id"] for item in list_resp.json())
+
+
+def test_file_access_link_is_single_use_for_local_storage(client, seeded_data, monkeypatch, tmp_path):
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "LOCAL_STORAGE_DIR", str(tmp_path))
+
+    storage_path = Path(tmp_path) / seeded_data["file"].file_url
+    storage_path.parent.mkdir(parents=True, exist_ok=True)
+    storage_path.write_bytes(b"sample evidence")
+
+    access_link_resp = client.get(
+        f"/api/v1/files/{seeded_data['file'].id}/access-link",
+        headers=_auth_header(seeded_data["lawyer_token"]),
+    )
+    assert access_link_resp.status_code == 200
+    access_url = access_link_resp.json()["access_url"]
+
+    first_download = client.get(access_url)
+    assert first_download.status_code == 200
+    assert first_download.content == b"sample evidence"
+
+    second_download = client.get(access_url)
+    assert second_download.status_code == 400
+    assert second_download.json()["code"] == "FILE_TOKEN_INVALID"

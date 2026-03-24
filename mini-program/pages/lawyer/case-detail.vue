@@ -4,7 +4,7 @@
       <text class="section-title">{{ caseInfo.title }}</text>
       <text class="meta">案号：{{ caseInfo.case_number }}</text>
       <text class="meta">状态：{{ formatCaseStatus(caseInfo.status) }}</text>
-      <text class="meta">当事人：{{ formatText(caseInfo.client ? caseInfo.client.real_name : '', '未关联') }}</text>
+      <text class="meta">当事人：{{ formatText(caseInfo.client ? caseInfo.client.real_name : "", "未关联") }}</text>
       <button class="primary-btn" @click="loadInvite">生成当事人邀请</button>
       <view v-if="invitePath" class="invite-box">
         <text class="invite-label">邀请路径</text>
@@ -12,6 +12,29 @@
         <text class="invite-path">{{ invitePath }}</text>
         <button class="ghost-btn" @click="copyInvitePath">复制路径</button>
       </view>
+    </view>
+
+    <view v-if="caseInfo && caseInfo.client_remark" class="card">
+      <text class="section-title">当事人补充说明</text>
+      <text class="meta">该说明对律师与 AI 分析可见，可结合材料一起判断。</text>
+      <text class="remark-content">{{ caseInfo.client_remark }}</text>
+    </view>
+
+    <view v-if="caseInfo" class="card">
+      <case-remark-input
+        title="律师内部备注"
+        hint="仅律师可见，可用于引导后续分析"
+        placeholder="记录分析方向、风险点、待补证据或需要复核的问题..."
+        submit-label="保存备注"
+        :show-voice="false"
+        :max-length="5000"
+        :show-existing-remark="false"
+        :prefill-text="caseInfo.lawyer_remark"
+        :clear-on-submit="false"
+        :allow-empty-submit="true"
+        :submit-handler="handleLawyerRemarkSubmit"
+        success-text="备注已保存"
+      />
     </view>
 
     <view class="section-title">案件时间线</view>
@@ -30,7 +53,7 @@
     </view>
     <view v-for="file in files" :key="file.id" class="card file-card">
       <text>{{ file.file_name }}</text>
-      <text class="meta">上传人：{{ file.uploader ? file.uploader.real_name : '未知' }}</text>
+      <text class="meta">上传人：{{ file.uploader ? file.uploader.real_name : "未知" }}</text>
       <view class="file-actions">
         <button class="ghost-btn" @click="previewFile(file)">预览</button>
         <button class="ghost-btn" @click="downloadFile(file)">下载</button>
@@ -42,7 +65,9 @@
 </template>
 
 <script>
+import CaseRemarkInput from "../../components/CaseRemarkInput.vue";
 import WorkspaceTabBar from "../../components/WorkspaceTabBar.vue";
+import { getCaseDetail, getRemarkValue, updateLawyerRemark } from "../../common/cases";
 import { formatCaseStatus, formatText } from "../../common/display";
 import { get } from "../../common/http";
 import { downloadCaseFile, previewCaseFile } from "../../common/file";
@@ -51,6 +76,7 @@ import { ensureWorkspaceAccess } from "../../common/workspace";
 
 export default {
   components: {
+    CaseRemarkInput,
     WorkspaceTabBar,
   },
   data() {
@@ -78,9 +104,23 @@ export default {
     formatCaseStatus,
     formatText,
     async loadCaseDetail() {
-      this.caseInfo = await get(`/cases/${this.caseId}`);
+      const detail = await getCaseDetail(this.caseId);
+      this.caseInfo = {
+        lawyer_remark: "",
+        client_remark: "",
+        ...(detail || {}),
+      };
       this.timeline = this.caseInfo.timeline || [];
       this.files = await get(`/files/case/${this.caseId}`);
+    },
+    async handleLawyerRemarkSubmit(text) {
+      const detail = await updateLawyerRemark(this.caseId, text);
+      this.caseInfo = {
+        ...(this.caseInfo || {}),
+        ...(detail || {}),
+        lawyer_remark: getRemarkValue(detail, "lawyer_remark", text),
+      };
+      return detail;
     },
     async loadInvite() {
       try {
@@ -135,6 +175,15 @@ export default {
 
 .file-card {
   margin-bottom: 20rpx;
+}
+
+.remark-content {
+  display: block;
+  margin-top: 8rpx;
+  color: var(--text-main);
+  font-size: 28rpx;
+  line-height: 1.7;
+  white-space: pre-wrap;
 }
 
 .invite-box {

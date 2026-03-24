@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 
 import pinia from '../stores'
 import {
+  DASHBOARD_ROLES,
   getUnauthorizedFallbackRouteName,
   isRouteAllowedForUser,
   WEB_MAIN_ROLES,
@@ -19,6 +20,9 @@ const CaseDetailView = () => import('../views/CaseDetailView.vue')
 const DocumentParsingView = () => import('../views/ai/DocumentParsing.vue')
 const ClientsView = () => import('../views/ClientsView.vue')
 const LawyersView = () => import('../views/LawyersView.vue')
+const AdminDashboardView = () => import('../views/AdminDashboardView.vue')
+const SuperAdminTenantsView = () => import('../views/SuperAdminTenantsView.vue')
+const SuperAdminUsersView = () => import('../views/SuperAdminUsersView.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -33,13 +37,13 @@ const router = createRouter({
       path: '/pending-approval',
       name: 'pending-approval',
       component: PendingApprovalView,
-      meta: { requiresAuth: true, title: '待审批' },
+      meta: { requiresAuth: true, title: '等待审批' },
     },
     {
       path: '/client-mini-only',
       name: 'client-mini-only',
       component: ClientMiniOnlyView,
-      meta: { requiresAuth: true, allowRoles: ['client'], title: '当事人入口说明' },
+      meta: { requiresAuth: true, allowRoles: ['client'], title: '当事人请使用小程序' },
     },
     {
       path: '/access-restricted',
@@ -50,7 +54,7 @@ const router = createRouter({
     {
       path: '/',
       component: DashboardLayout,
-      meta: { requiresAuth: true, allowRoles: WEB_MAIN_ROLES },
+      meta: { requiresAuth: true, allowRoles: DASHBOARD_ROLES },
       children: [
         {
           path: '',
@@ -108,6 +112,24 @@ const router = createRouter({
           name: 'lawyers',
           component: LawyersView,
           meta: { allowRoles: ['tenant_admin'], title: '律师管理' },
+        },
+        {
+          path: 'super-admin',
+          name: 'super-admin-overview',
+          component: AdminDashboardView,
+          meta: { allowRoles: ['super_admin'], title: '平台概览' },
+        },
+        {
+          path: 'super-admin/tenants',
+          name: 'super-admin-tenants',
+          component: SuperAdminTenantsView,
+          meta: { allowRoles: ['super_admin'], title: '租户管理' },
+        },
+        {
+          path: 'super-admin/users',
+          name: 'super-admin-users',
+          component: SuperAdminUsersView,
+          meta: { allowRoles: ['super_admin'], title: '用户总览' },
         },
       ],
     },

@@ -25,4 +25,4 @@ class File(Base, TimestampMixin):
 
     @property
     def download_url(self) -> str:
-        return f"/api/v1/files/{self.id}/download"
+        return f"/api/v1/files/{self.id}/access-link"

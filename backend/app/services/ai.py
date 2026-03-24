@@ -502,12 +502,27 @@ class AIService:
         return normalize_queue_driver() == "db"
 
     def _should_run_inline(self) -> bool:
-        return bool(settings.AI_DB_QUEUE_EAGER)
+        return bool(settings.AI_DB_QUEUE_EAGER and settings.AI_DB_QUEUE_EAGER_BLOCKING)
+
+    def _should_run_eager_in_background(self) -> bool:
+        return bool(settings.AI_DB_QUEUE_EAGER and not settings.AI_DB_QUEUE_EAGER_BLOCKING)
+
+    def _start_background_task(self, *, task_id: str) -> None:
+        thread = threading.Thread(
+            target=self._run_task_in_background,
+            kwargs={"task_id": task_id},
+            daemon=True,
+            name=f"ai-task-{task_id[:8]}",
+        )
+        thread.start()
 
     def _schedule_task_execution(self, *, task_id: str) -> None:
         if self._is_db_queue_driver():
             if self._should_run_inline():
                 self._process_task_by_id(task_id=task_id)
+                return
+            if self._should_run_eager_in_background():
+                self._start_background_task(task_id=task_id)
                 return
             task = self.repo.get_task_for_worker(task_id=task_id)
             if task is not None:
@@ -517,6 +532,9 @@ class AIService:
 
         if self._should_run_inline():
             self._process_task_by_id(task_id=task_id)
+            return
+        if self._should_run_eager_in_background():
+            self._start_background_task(task_id=task_id)
             return
 
         task = self.repo.get_task_for_worker(task_id=task_id)
@@ -1264,7 +1282,7 @@ class AIService:
         task.status = "failed"
         task.progress = min(task.progress, 99)
         task.message = fallback_message
-        task.error_message = error_message
+        task.error_message = fallback_message
         task.completed_at = datetime.now(timezone.utc)
         task.heartbeat_at = datetime.now(timezone.utc)
         task.next_retry_at = None
@@ -1737,8 +1755,8 @@ class AIService:
         return "major"
 
     def _mask_sensitive(self, text: str) -> str:
-        text = re.sub(r"(?<!\d)(1\d{2})\d{4}(\d{4})(?!\d)", r"\1****\2", text)
-        text = re.sub(r"(?<!\d)(\d{6})\d{8}(\w{4})(?!\w)", r"\1********\2", text)
+        text = re.sub(r"(?<!\d)(1\d{2})[\s-]*\d{4}[\s-]*(\d{4})(?!\d)", r"\1****\2", text)
+        text = re.sub(r"(?<![\dA-Za-z])(\d{6})[\s-]*\d{8}[\s-]*([0-9Xx]{4})(?![\dA-Za-z])", r"\1********\2", text)
         return text
 
     def _to_case_fact_read(self, fact: CaseFact) -> CaseFactRead:

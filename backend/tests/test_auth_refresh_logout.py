@@ -109,3 +109,22 @@ def test_logout_endpoint_revokes_current_refresh_session(client, db_session, see
     )
     assert refresh_resp.status_code == 401
     assert refresh_resp.json().get("code") == "AUTH_REQUIRED"
+
+
+def test_logout_without_refresh_token_revokes_current_access_session(client, db_session, seeded_data):
+    _ = seeded_data
+    login_payload = _login_lawyer(client)
+
+    logout_resp = client.post(
+        "/api/v1/auth/logout",
+        headers=_auth_header(login_payload["access_token"]),
+    )
+    assert logout_resp.status_code == 204
+
+    db_session.expire_all()
+    session = db_session.query(AuthSession).one()
+    assert session.is_revoked is True
+
+    me_resp = client.get("/api/v1/users/me", headers=_auth_header(login_payload["access_token"]))
+    assert me_resp.status_code == 401
+    assert me_resp.json().get("code") == "AUTH_REQUIRED"

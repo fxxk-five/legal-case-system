@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import os
+import hashlib
+import secrets
 import tempfile
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import UploadFile, status
@@ -13,6 +15,7 @@ from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
 from app.core.security import create_access_token
 from app.models.file import File
+from app.models.file_access_grant import FileAccessGrant
 from app.services.storage import get_storage_backend
 
 _UPLOAD_CHUNK_SIZE = 1024 * 1024
@@ -101,6 +104,18 @@ def _file_token_invalid(message: str) -> AppError:
         message=message,
         detail=message,
     )
+
+
+def _hash_ephemeral_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _as_utc(value: datetime | None) -> datetime | None:
+    if value is None:
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc)
 
 
 def _validate_file_name(filename: str | None) -> str:
@@ -347,27 +362,40 @@ def build_storage_download_url(*, file_record: File, expires_seconds: int) -> st
     )
 
 
-def create_file_access_token(*, file_id: int, tenant_id: int) -> str:
-    return create_access_token(
-        subject=f"file-access:{file_id}",
-        expires_delta=timedelta(minutes=settings.FILE_ACCESS_TOKEN_EXPIRE_MINUTES),
-        extra_data={"file_id": file_id, "tenant_id": tenant_id, "scene": "file_access"},
+def create_file_access_grant(
+    db: Session,
+    *,
+    file_id: int,
+    tenant_id: int,
+    issued_to_user_id: int | None,
+) -> str:
+    token = secrets.token_urlsafe(32)
+    grant = FileAccessGrant(
+        file_id=file_id,
+        tenant_id=tenant_id,
+        issued_to_user_id=issued_to_user_id,
+        token_hash=_hash_ephemeral_token(token),
+        expires_at=datetime.now(timezone.utc) + timedelta(minutes=settings.FILE_ACCESS_TOKEN_EXPIRE_MINUTES),
     )
+    db.add(grant)
+    db.commit()
+    return token
 
 
-def decode_file_access_token(token: str) -> dict:
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError as exc:
-        raise _file_token_invalid("File access token is invalid or expired.") from exc
-
-    if payload.get("scene") != "file_access":
+def consume_file_access_grant(db: Session, token: str) -> dict[str, int]:
+    now = datetime.now(timezone.utc)
+    grant = (
+        db.query(FileAccessGrant)
+        .filter(FileAccessGrant.token_hash == _hash_ephemeral_token(token))
+        .first()
+    )
+    expires_at = _as_utc(grant.expires_at) if grant is not None else None
+    if grant is None or grant.used_at is not None or expires_at is None or expires_at <= now:
         raise _file_token_invalid("File access token is invalid or expired.")
-
-    if not isinstance(payload.get("file_id"), int) or not isinstance(payload.get("tenant_id"), int):
-        raise _file_token_invalid("File access token is invalid or expired.")
-
-    return payload
+    grant.used_at = now
+    db.add(grant)
+    db.commit()
+    return {"file_id": int(grant.file_id), "tenant_id": int(grant.tenant_id)}
 
 
 def create_direct_upload_completion_token(

@@ -34,7 +34,8 @@ def is_super_admin_role(role: str) -> bool:
 
 
 def is_tenant_admin_role(role: str, *, is_tenant_admin: bool = False) -> bool:
-    return is_tenant_admin or normalize_role(role) == ROLE_TENANT_ADMIN
+    _ = is_tenant_admin
+    return normalize_role(role) == ROLE_TENANT_ADMIN
 
 
 def can_manage_case_role(role: str) -> bool:
@@ -43,3 +44,12 @@ def can_manage_case_role(role: str) -> bool:
 
 def can_manage_lawyer_role(role: str) -> bool:
     return normalize_role(role) == ROLE_TENANT_ADMIN
+
+
+def role_values_for_query(*roles: str) -> tuple[str, ...]:
+    normalized_roles = {normalize_role(role) for role in roles if role}
+    values = set(normalized_roles)
+    for alias, target in ROLE_ALIASES.items():
+        if target in normalized_roles:
+            values.add(alias)
+    return tuple(sorted(values))

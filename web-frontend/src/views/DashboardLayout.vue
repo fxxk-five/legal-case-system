@@ -150,6 +150,8 @@ import {
   BriefcaseIcon,
   UserIcon,
   UsersIcon,
+  ShieldIcon,
+  Building2Icon,
   BellIcon,
   MenuIcon,
   XIcon,
@@ -171,6 +173,8 @@ const ICON_MAP = {
   BriefcaseIcon,
   UserIcon,
   UsersIcon,
+  ShieldIcon,
+  Building2Icon,
 }
 
 const navItems = computed(() => {

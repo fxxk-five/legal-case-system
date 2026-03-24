@@ -21,12 +21,12 @@ from app.services.case_flow import create_case_flow
 from app.services.case_visibility import ensure_personal_tenant_lawyer_case_visible
 from app.services.file import (
     build_storage_download_url,
+    consume_file_access_grant,
     create_direct_upload_completion_token,
-    create_file_access_token,
+    create_file_access_grant,
     create_stored_file_record,
     delete_storage_object,
     decode_direct_upload_completion_token,
-    decode_file_access_token,
     move_storage_object,
     resolve_storage_path,
     save_upload_file,
@@ -678,7 +678,12 @@ def get_file_access_link(
             expires_in_seconds=settings.FILE_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
         )
 
-    token = create_file_access_token(file_id=file_record.id, tenant_id=file_record.tenant_id)
+    token = create_file_access_grant(
+        db,
+        file_id=file_record.id,
+        tenant_id=file_record.tenant_id,
+        issued_to_user_id=current_user.id,
+    )
     return FileAccessLinkRead(
         file_id=file_record.id,
         file_name=file_record.file_name,
@@ -705,7 +710,7 @@ def download_file_by_token(
     token: str,
     db: Session = Depends(get_db),
 ) -> Response:
-    payload = decode_file_access_token(token)
+    payload = consume_file_access_grant(db, token)
     file_record = _get_file_or_404(
         db,
         file_id=int(payload["file_id"]),

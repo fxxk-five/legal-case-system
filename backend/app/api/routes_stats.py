@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.orm import Query, Session
 
+from app.core.roles import is_tenant_admin_role, role_values_for_query
 from app.db.session import get_db
 from app.dependencies.auth import get_current_user
 from app.models.case import Case
@@ -74,12 +75,12 @@ def _count_dashboard_deltas(
     )
 
     delta_pending_member_count = 0
-    if current_user.is_tenant_admin or current_user.role == "tenant_admin":
+    if is_tenant_admin_role(current_user.role, is_tenant_admin=current_user.is_tenant_admin):
         delta_pending_member_count = (
             db.query(User)
             .filter(
                 User.tenant_id == current_user.tenant_id,
-                User.role.in_(["lawyer", "tenant_admin"]),
+                User.role.in_(role_values_for_query("lawyer", "tenant_admin")),
                 User.status == 0,
                 User.created_at > baseline,
             )
@@ -106,7 +107,7 @@ def get_dashboard_stats(
 
     lawyer_count = (
         db.query(User)
-        .filter(User.tenant_id == tenant_id, User.role.in_(["lawyer", "tenant_admin"]))
+        .filter(User.tenant_id == tenant_id, User.role.in_(role_values_for_query("lawyer", "tenant_admin")))
         .count()
     )
     client_total = (
@@ -123,12 +124,12 @@ def get_dashboard_stats(
     case_closed = visible_cases.filter(Case.status == "done").count()
 
     pending_member_count: int | None = None
-    if current_user.is_tenant_admin or current_user.role == "tenant_admin":
+    if is_tenant_admin_role(current_user.role, is_tenant_admin=current_user.is_tenant_admin):
         pending_member_count = (
             db.query(User)
             .filter(
                 User.tenant_id == tenant_id,
-                User.role.in_(["lawyer", "tenant_admin"]),
+                User.role.in_(role_values_for_query("lawyer", "tenant_admin")),
                 User.status == 0,
             )
             .count()
