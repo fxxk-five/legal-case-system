@@ -20,8 +20,8 @@
   - 完成：`service.py` 的提交/刷新操作已下沉到 `repository.py`
 - [x] `notifications`
   - 完成：`service.py` 的提交/刷新操作已下沉到 `repository.py`
-- [ ] `clients`
-  - 目标：`service.py` 的写操作下沉到 `repository.py`
+- [x] `clients`
+  - 完成：`service.py` 的写操作已下沉到 `repository.py`
 - [x] `analytics`
   - 完成：`service.py` 的提交/刷新操作已下沉到 `repository.py`
 - [ ] `users`
