@@ -6,6 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 CASE_FILE_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "files" / "case_file_service.py"
 CASE_FILE_REANALYSIS_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "files" / "case_file_reanalysis_service.py"
+ROUTER_PATH = PROJECT_ROOT / "app" / "modules" / "files" / "router.py"
 UPLOAD_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "files" / "upload_service.py"
 
 
@@ -46,3 +47,16 @@ def test_case_file_reanalysis_service_does_not_use_raw_session_writes() -> None:
             violations.append(f"{CASE_FILE_REANALYSIS_SERVICE_PATH.relative_to(PROJECT_ROOT)}:{lineno}: {stripped}")
 
     assert violations == [], "Case file reanalysis service still uses raw session operations:\n" + "\n".join(violations)
+
+
+def test_files_router_delete_path_does_not_use_raw_session_writes() -> None:
+    violations: list[str] = []
+
+    for lineno, line in enumerate(ROUTER_PATH.read_text(encoding="utf-8").splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if "db.delete(" in stripped or "db.commit(" in stripped:
+            violations.append(f"{ROUTER_PATH.relative_to(PROJECT_ROOT)}:{lineno}: {stripped}")
+
+    assert violations == [], "Files router still uses raw session operations:\n" + "\n".join(violations)

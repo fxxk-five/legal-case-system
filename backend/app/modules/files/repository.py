@@ -27,6 +27,9 @@ class FilesRepository:
     def refresh(self, instance: object) -> None:
         self.db.refresh(instance)
 
+    def delete(self, instance: object) -> None:
+        self.db.delete(instance)
+
     def save_and_commit(self, instance: object) -> None:
         self.save(instance)
         self.commit()
