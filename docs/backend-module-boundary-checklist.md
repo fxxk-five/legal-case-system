@@ -30,10 +30,16 @@
   - 完成：`service.py`、`provisioning_service.py`、`tenants_budget_service.py` 的提交/刷新操作已下沉到 `repository.py`
 - [x] `cases`
   - 完成：`command_service.py`、`remark_service.py` 的写操作已下沉到 `repository.py`
-- [ ] `files`
-  - 目标：`case_file_service.py`、`upload_service.py`、`router.py` 的写操作收口
-- [ ] `ai`
-  - 目标：各 `services/*.py` 的写操作收口到 `repository.py`
+- [x] `files / upload`
+  - 完成：`case_file_service.py`、`upload_service.py` 的写操作已下沉到 `repository.py`
+- [ ] `files / delete-access`
+  - 目标：`router.py`、`repository.py` 的删除与授权写操作收口
+- [ ] `ai / task-create`
+  - 目标：`analysis_service.py`、`parse_service.py`、`falsification_service.py` 的写操作收口
+- [ ] `ai / runtime-command`
+  - 目标：`runtime_service.py`、`task_command_service.py`、`worker_dispatch_service.py` 的写操作收口
+- [ ] `ai / submit-budget-flow`
+  - 目标：`submission_service.py`、`budget_service.py`、`flow_service.py` 的写操作收口
 
 ## 执行顺序
 
@@ -44,5 +50,8 @@
 5. `users`
 6. `tenants`
 7. `cases`
-8. `files`
-9. `ai`
+8. `files / upload`
+9. `files / delete-access`
+10. `ai / task-create`
+11. `ai / runtime-command`
+12. `ai / submit-budget-flow`
