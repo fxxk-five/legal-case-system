@@ -24,7 +24,7 @@
   - 已覆盖：`session_service.py`、`wechat_binding_service.py`、`wechat_account_binding_service.py`
   - 要求：静态边界测试只锁定 auth 写路径，不误伤仓储层
 
-- [ ] 跑 auth 定向回归矩阵
+- [x] 跑 auth 定向回归矩阵
   - `backend/tests/test_auth_refresh_logout.py`
   - `backend/tests/test_auth_sms_and_invite_flow.py`
   - `backend/tests/test_auth_wechat_mini.py`
