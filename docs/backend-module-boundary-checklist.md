@@ -26,8 +26,8 @@
   - 完成：`service.py` 的提交/刷新操作已下沉到 `repository.py`
 - [x] `users`
   - 完成：`service.py` 的写操作已下沉到 `repository.py`
-- [ ] `tenants`
-  - 目标：`service.py`、`provisioning_service.py`、`tenants_budget_service.py` 的提交/刷新操作下沉到 `repository.py`
+- [x] `tenants`
+  - 完成：`service.py`、`provisioning_service.py`、`tenants_budget_service.py` 的提交/刷新操作已下沉到 `repository.py`
 - [x] `cases`
   - 完成：`command_service.py`、`remark_service.py` 的写操作已下沉到 `repository.py`
 - [ ] `files`
