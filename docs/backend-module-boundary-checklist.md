@@ -28,8 +28,8 @@
   - 目标：`service.py` 的写操作下沉到 `repository.py`
 - [ ] `tenants`
   - 目标：`service.py`、`provisioning_service.py`、`tenants_budget_service.py` 的提交/刷新操作下沉到 `repository.py`
-- [ ] `cases`
-  - 目标：`command_service.py`、`remark_service.py` 的写操作下沉到 `repository.py`
+- [x] `cases`
+  - 完成：`command_service.py`、`remark_service.py` 的写操作已下沉到 `repository.py`
 - [ ] `files`
   - 目标：`case_file_service.py`、`upload_service.py`、`router.py` 的写操作收口
 - [ ] `ai`
