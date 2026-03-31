@@ -32,6 +32,8 @@
   - 完成：`command_service.py`、`remark_service.py` 的写操作已下沉到 `repository.py`
 - [x] `files / upload`
   - 完成：`case_file_service.py`、`upload_service.py` 的写操作已下沉到 `repository.py`
+- [x] `files / reanalysis-status`
+  - 完成：`case_file_reanalysis_service.py` 的案件状态写操作已下沉到 `repository.py`
 - [ ] `files / delete-access`
   - 目标：`router.py`、`repository.py` 的删除与授权写操作收口
 - [ ] `ai / task-create`
@@ -51,7 +53,8 @@
 6. `tenants`
 7. `cases`
 8. `files / upload`
-9. `files / delete-access`
-10. `ai / task-create`
-11. `ai / runtime-command`
-12. `ai / submit-budget-flow`
+9. `files / reanalysis-status`
+10. `files / delete-access`
+11. `ai / task-create`
+12. `ai / runtime-command`
+13. `ai / submit-budget-flow`
