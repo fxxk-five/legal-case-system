@@ -11,13 +11,10 @@
   - 提交：`5db383b`
 - [x] `account_service.py` 写操作改走 `AuthRepository`
   - 验证：边界测试、改密链路、邀请注册、密码策略
+- [x] `session_service.py` 写操作改走 `AuthRepository`
+  - 验证：边界测试、刷新令牌、退出登录、会话轮换
 
 ## 待完成
-
-- [ ] 收口 `backend/app/modules/auth/session_service.py`
-  - 目标：移除直接 `db.flush/db.commit/db.refresh`
-  - 边界：会话写路径统一走 `AuthRepository`
-  - 验证：刷新令牌、退出登录、会话失效回归
 
 - [ ] 收口 `backend/app/modules/auth/services/wechat_account_binding_service.py`
   - 目标：移除直接 `self.db.add`

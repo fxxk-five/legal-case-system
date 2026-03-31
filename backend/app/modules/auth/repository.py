@@ -93,6 +93,9 @@ class AuthRepository:
     def commit(self) -> None:
         self.db.commit()
 
+    def flush(self) -> None:
+        self.db.flush()
+
     def refresh(self, instance: object) -> None:
         self.db.refresh(instance)
 

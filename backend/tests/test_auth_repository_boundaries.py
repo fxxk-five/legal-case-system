@@ -6,6 +6,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WEB_WECHAT_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "auth" / "web_wechat_service.py"
 ACCOUNT_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "auth" / "account_service.py"
+SESSION_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "auth" / "session_service.py"
 
 
 def test_web_wechat_service_does_not_use_raw_session_writes() -> None:
@@ -34,3 +35,16 @@ def test_account_service_does_not_use_raw_session_writes() -> None:
             violations.append(f"{ACCOUNT_SERVICE_PATH.relative_to(PROJECT_ROOT)}:{lineno}: {stripped}")
 
     assert violations == [], "Account service still uses raw session operations:\n" + "\n".join(violations)
+
+
+def test_session_service_does_not_use_raw_session_writes() -> None:
+    violations: list[str] = []
+
+    for lineno, line in enumerate(SESSION_SERVICE_PATH.read_text(encoding="utf-8").splitlines(), start=1):
+        stripped = line.strip()
+        if stripped.startswith("#"):
+            continue
+        if "self.db.flush(" in stripped or "self.db.commit(" in stripped or "self.db.refresh(" in stripped:
+            violations.append(f"{SESSION_SERVICE_PATH.relative_to(PROJECT_ROOT)}:{lineno}: {stripped}")
+
+    assert violations == [], "Session service still uses raw session operations:\n" + "\n".join(violations)
