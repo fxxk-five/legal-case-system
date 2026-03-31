@@ -110,6 +110,14 @@ class AIRepository:
     def rollback(self) -> None:
         self.db.rollback()
 
+    def commit_and_refresh(self, entity: object) -> None:
+        self.commit()
+        self.refresh(entity)
+
+    def save_commit_refresh(self, entity: object) -> None:
+        self.save(entity)
+        self.commit_and_refresh(entity)
+
     def get_task_by_idempotency_key(
         self,
         *,

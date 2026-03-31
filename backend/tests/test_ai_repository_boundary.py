@@ -7,6 +7,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 ANALYSIS_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "analysis_service.py"
 PARSE_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "parse_service.py"
 FALSIFICATION_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "falsification_service.py"
+RUNTIME_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "runtime_service.py"
+TASK_COMMAND_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "task_command_service.py"
+WORKER_DISPATCH_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "worker_dispatch_service.py"
 
 RAW_SESSION_PATTERNS = (
     "service.db.add(",
@@ -14,6 +17,11 @@ RAW_SESSION_PATTERNS = (
     "service.db.commit(",
     "service.db.refresh(",
     "service.db.rollback(",
+    "retry_service.db.add(",
+    "retry_service.db.flush(",
+    "retry_service.db.commit(",
+    "retry_service.db.refresh(",
+    "retry_service.db.rollback(",
 )
 
 
@@ -43,3 +51,18 @@ def test_parse_service_does_not_use_raw_session_writes() -> None:
 def test_falsification_service_does_not_use_raw_session_writes() -> None:
     violations = _collect_violations(FALSIFICATION_SERVICE_PATH)
     assert violations == [], "Falsification service still uses raw session operations:\n" + "\n".join(violations)
+
+
+def test_runtime_service_does_not_use_raw_session_writes() -> None:
+    violations = _collect_violations(RUNTIME_SERVICE_PATH)
+    assert violations == [], "Runtime service still uses raw session operations:\n" + "\n".join(violations)
+
+
+def test_task_command_service_does_not_use_raw_session_writes() -> None:
+    violations = _collect_violations(TASK_COMMAND_SERVICE_PATH)
+    assert violations == [], "Task command service still uses raw session operations:\n" + "\n".join(violations)
+
+
+def test_worker_dispatch_service_does_not_use_raw_session_writes() -> None:
+    violations = _collect_violations(WORKER_DISPATCH_SERVICE_PATH)
+    assert violations == [], "Worker dispatch service still uses raw session operations:\n" + "\n".join(violations)
