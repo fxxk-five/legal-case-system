@@ -38,7 +38,7 @@ def _check_local_storage() -> tuple[str, str | None]:
 
 def _check_cos_storage() -> tuple[str, str | None]:
     try:
-        from app.services.storage import get_storage_backend
+        from app.integrations.storage.service import get_storage_backend
 
         backend = get_storage_backend()
         if getattr(backend, "backend_name", "") != "cos":

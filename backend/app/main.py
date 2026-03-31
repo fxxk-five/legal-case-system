@@ -10,10 +10,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from app.api.api_v1 import api_router
-from app.api.routes_ws_ai import router as ws_ai_router
+from app.modules.ai.ws_router import router as ws_ai_router
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode, map_http_status_to_code
-from app.services.health import build_liveness_payload, build_readiness_payload
+from app.core.health import build_liveness_payload, build_readiness_payload
 
 
 logging.basicConfig(
