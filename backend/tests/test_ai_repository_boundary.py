@@ -10,6 +10,9 @@ FALSIFICATION_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services
 RUNTIME_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "runtime_service.py"
 TASK_COMMAND_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "task_command_service.py"
 WORKER_DISPATCH_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "worker_dispatch_service.py"
+SUBMISSION_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "submission_service.py"
+BUDGET_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "budget_service.py"
+FLOW_SERVICE_PATH = PROJECT_ROOT / "app" / "modules" / "ai" / "services" / "flow_service.py"
 
 RAW_SESSION_PATTERNS = (
     "service.db.add(",
@@ -66,3 +69,18 @@ def test_task_command_service_does_not_use_raw_session_writes() -> None:
 def test_worker_dispatch_service_does_not_use_raw_session_writes() -> None:
     violations = _collect_violations(WORKER_DISPATCH_SERVICE_PATH)
     assert violations == [], "Worker dispatch service still uses raw session operations:\n" + "\n".join(violations)
+
+
+def test_submission_service_does_not_use_raw_session_writes() -> None:
+    violations = _collect_violations(SUBMISSION_SERVICE_PATH)
+    assert violations == [], "Submission service still uses raw session operations:\n" + "\n".join(violations)
+
+
+def test_budget_service_does_not_use_raw_session_writes() -> None:
+    violations = _collect_violations(BUDGET_SERVICE_PATH)
+    assert violations == [], "Budget service still uses raw session operations:\n" + "\n".join(violations)
+
+
+def test_flow_service_does_not_use_raw_session_writes() -> None:
+    violations = _collect_violations(FLOW_SERVICE_PATH)
+    assert violations == [], "Flow service still uses raw session operations:\n" + "\n".join(violations)

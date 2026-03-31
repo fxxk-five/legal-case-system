@@ -40,8 +40,8 @@
   - 完成：`analysis_service.py`、`parse_service.py`、`falsification_service.py` 的写操作已收口到 `repository.py`
 - [x] `ai / runtime-command`
   - 完成：`runtime_service.py`、`task_command_service.py`、`worker_dispatch_service.py` 的写操作已收口到 `repository.py`
-- [ ] `ai / submit-budget-flow`
-  - 目标：`submission_service.py`、`budget_service.py`、`flow_service.py` 的写操作收口
+- [x] `ai / submit-budget-flow`
+  - 完成：`submission_service.py`、`budget_service.py`、`flow_service.py` 的写操作已收口到 `repository.py`
 
 ## 执行顺序
 
