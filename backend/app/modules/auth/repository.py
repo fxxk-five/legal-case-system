@@ -99,6 +99,10 @@ class AuthRepository:
     def refresh(self, instance: object) -> None:
         self.db.refresh(instance)
 
+    def commit_and_refresh(self, instance: object) -> None:
+        self.commit()
+        self.refresh(instance)
+
     def save_commit_refresh(self, instance: object) -> None:
         self.save(instance)
         self.commit()
