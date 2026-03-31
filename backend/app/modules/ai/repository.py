@@ -7,14 +7,16 @@ from decimal import Decimal
 from sqlalchemy import and_, desc, func, or_
 from sqlalchemy.orm import Session
 
+from app.models.auth_session import AuthSession
+from app.models.tenant import Tenant
 from app.models.user import User
 
-from app.models.ai_analysis import AIAnalysisResult
-from app.models.ai_task import AITask
-from app.models.case import Case
-from app.models.case_fact import CaseFact
-from app.models.falsification import FalsificationRecord
-from app.models.file import File
+from app.modules.ai.models.ai_analysis import AIAnalysisResult
+from app.modules.ai.models.ai_task import AITask
+from app.modules.ai.models.falsification import FalsificationRecord
+from app.modules.cases.models.case import Case
+from app.modules.cases.models.case_fact import CaseFact
+from app.modules.files.models.file import File
 
 
 class AIRepository:
@@ -27,6 +29,9 @@ class AIRepository:
             .filter(Case.id == case_id, Case.tenant_id == tenant_id)
             .first()
         )
+
+    def get_tenant(self, *, tenant_id: int) -> Tenant | None:
+        return self.db.query(Tenant).filter(Tenant.id == tenant_id).first()
 
     def get_file(self, *, file_id: int, case_id: int, tenant_id: int) -> File | None:
         return (
@@ -89,6 +94,21 @@ class AIRepository:
         self.db.add(task)
         self.db.flush()
         return task
+
+    def save(self, entity: object) -> None:
+        self.db.add(entity)
+
+    def flush(self) -> None:
+        self.db.flush()
+
+    def commit(self) -> None:
+        self.db.commit()
+
+    def refresh(self, entity: object) -> None:
+        self.db.refresh(entity)
+
+    def rollback(self) -> None:
+        self.db.rollback()
 
     def get_task_by_idempotency_key(
         self,
@@ -174,6 +194,41 @@ class AIRepository:
                 User.tenant_id == tenant_id,
             )
             .first()
+        )
+
+    def get_auth_session(
+        self,
+        *,
+        session_id: int,
+        user_id: int,
+        tenant_id: int,
+    ) -> AuthSession | None:
+        return (
+            self.db.query(AuthSession)
+            .filter(
+                AuthSession.id == session_id,
+                AuthSession.user_id == user_id,
+                AuthSession.tenant_id == tenant_id,
+            )
+            .first()
+        )
+
+    def client_owns_task_case(
+        self,
+        *,
+        tenant_id: int,
+        user_id: int,
+        case_id: int,
+    ) -> bool:
+        return (
+            self.db.query(Case.id)
+            .filter(
+                Case.id == case_id,
+                Case.tenant_id == tenant_id,
+                Case.client_id == user_id,
+            )
+            .first()
+            is not None
         )
 
     def list_tasks(

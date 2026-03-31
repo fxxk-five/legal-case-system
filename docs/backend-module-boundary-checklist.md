@@ -36,8 +36,8 @@
   - 完成：`case_file_reanalysis_service.py` 的案件状态写操作已下沉到 `repository.py`
 - [x] `files / delete-access`
   - 完成：`router.py` 已切换为 `CaseFileService` / `FilesRepository`，删除与访问写操作已收口到 `repository.py`
-- [ ] `ai / task-create`
-  - 目标：`analysis_service.py`、`parse_service.py`、`falsification_service.py` 的写操作收口
+- [x] `ai / task-create`
+  - 完成：`analysis_service.py`、`parse_service.py`、`falsification_service.py` 的写操作已收口到 `repository.py`
 - [ ] `ai / runtime-command`
   - 目标：`runtime_service.py`、`task_command_service.py`、`worker_dispatch_service.py` 的写操作收口
 - [ ] `ai / submit-budget-flow`
