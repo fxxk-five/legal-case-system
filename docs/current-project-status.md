@@ -43,7 +43,7 @@
 | --- | --- | --- |
 | 项目结构 | 已形成新主线，但仍有存量目录并存 | 处于“新结构已建立、旧结构仍在收口”的阶段 |
 | 功能主链路 | 已打通 | Web、微信小程序、后端主业务链路可本地联调 |
-| 本地质量 | 已有最近一次可复验基线 | 后端、Web、小程序、登录 smoke 均有已记录通过结果 |
+| 本地质量 | 已刷新 2026-04-01 基线 | Web / 小程序 / 登录 smoke 通过，但后端全量回归发现 1 个 dashboard 统计失败 |
 | 文档治理 | 已收口并建立门禁 | `docs` 与 `plans` 已压缩为少量常驻文档，状态文档更新门禁已建立，并已提供本地 Git hook |
 | 正式上线 readiness | 未完成 | 仍受云资源、微信平台、真机与云端 E2E 阻塞 |
 
@@ -173,12 +173,13 @@
 
 > 以下是目前文档中最近一次已记录、且可用于回溯的通过结果。
 
-- 后端回归：`232 passed`（`2026-03-28`）
+- 后端回归：`264 passed, 1 failed`（`2026-04-01`，失败项：`backend/tests/test_dashboard_stats.py::test_dashboard_stats_include_delta_since_previous_login`）
+- Web lint：`PASS`
 - Web 测试：`58 passed`
 - Web 构建：通过
 - 小程序静态审查：`17/17 passed`
 - 登录主链路 smoke：`PASS`
-- 文档完整性检查：`PASS`
+- 文档完整性检查：最近一次记录为 `PASS`
 
 ### 当前已记录的关键验证命令
 
@@ -752,6 +753,26 @@
   - `backend/app/modules/files`（排除 `repository.py`）与 `backend/app/modules/ai/services` 裸写库点扫描：`0`
 - 状态结论：后端模块边界收口已完成，工程重心应从 Repository 写边界治理转向状态同步、本地质量基线刷新与正式放行准备；正式上线阻塞仍主要在云资源、微信能力、真机验收与云端 E2E。
 
+### 6.32 2026-04-01 变更记录（本地质量基线刷新）
+
+- 变更类型：验收 + 基线刷新
+- 变更摘要：
+  - 重新执行后端全量回归、Web lint/test/build、小程序静态审查、登录主链路 smoke。
+  - Web、小程序与登录链路均通过。
+  - 后端全量回归发现 1 个新增失败：`backend/tests/test_dashboard_stats.py::test_dashboard_stats_include_delta_since_previous_login`，当前断言为 `delta_deadline_risk_count == 1`，实际返回 `0`。
+- 影响范围：`backend / web-frontend / mini-program / docs`
+- 受影响目录：
+  - `backend/tests/test_dashboard_stats.py`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `python -m pytest backend/tests -q`：`264 passed, 1 failed`
+  - `npm --prefix web-frontend run lint`：`PASS`
+  - `npm --prefix web-frontend run test`：`58 passed`
+  - `npm --prefix web-frontend run build`：`PASS`
+  - `python scripts/mini_program_static_audit.py`：`17/17 passed`
+  - `python scripts/smoke_login_matrix.py`：`PASS`
+- 状态结论：当前本地基线已刷新，但未恢复到“全绿”状态；进入放行准备前，应先修复 dashboard 统计回归并重新跑后端全量回归。
+
 ## 7. 当前未完成事项
 
 ## 7.1 正式上线阻塞项（P0）
@@ -786,15 +807,16 @@
 
 ## 7.3 工程收口剩余任务（非上线阻塞）
 
-- 当前无新增工程收口项（`REF-FE-01`、`REF-BE-04`、`REF-BE-05`、`REF-FE-02`、`REF-BE-03` 均已完成）。
+- `QA-BE-BASELINE-01`：修复 `backend/tests/test_dashboard_stats.py::test_dashboard_stats_include_delta_since_previous_login` 暴露的 dashboard 增量统计回归，并恢复后端全量回归全绿。
 
 ## 8. 推荐执行顺序
 
-1. 先完成 `W12-T03 / W12-T04 / W12-T08`
-2. 再完成 `WX-01` 与 `QA-03`
-3. 再做 `W12-V01 ~ W12-V06`
-4. 再做 `W13-T01 ~ W13-T06`
-5. 最后完成 `W13-T07 / W13-T08`
+1. 先修复 `QA-BE-BASELINE-01`
+2. 再完成 `W12-T03 / W12-T04 / W12-T08`
+3. 再完成 `WX-01` 与 `QA-03`
+4. 再做 `W12-V01 ~ W12-V06`
+5. 再做 `W13-T01 ~ W13-T06`
+6. 最后完成 `W13-T07 / W13-T08`
 
 ## 9. 以后维护时的更新模板
 
