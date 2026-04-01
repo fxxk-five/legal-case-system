@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from app.core.security import create_access_token, get_password_hash
-from app.models.case import Case
-from app.models.file import File
+from app.core.security import get_password_hash
+from app.modules.analytics import dashboard_service as dashboard_service_module
+from app.modules.cases.models.case import Case
+from app.modules.files.models.file import File
 from app.models.user import User
+from app.modules.auth.service import issue_session_bound_access_token
 
 
 def _auth_header(token: str) -> dict[str, str]:
@@ -44,11 +46,21 @@ def test_login_updates_login_audit_fields(client, db_session, seeded_data):
     assert _normalize_dt(lawyer.last_login_at) > _normalize_dt(old_last)
 
 
-def test_dashboard_stats_include_delta_since_previous_login(client, db_session, seeded_data):
+def test_dashboard_stats_include_delta_since_previous_login(client, db_session, seeded_data, monkeypatch):
     tenant = seeded_data["tenant"]
     baseline = datetime(2026, 3, 22, 8, 0, tzinfo=timezone.utc)
     old_time = baseline - timedelta(days=2)
     new_time = baseline + timedelta(hours=4)
+    frozen_now = baseline + timedelta(days=1)
+
+    class FrozenDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            if tz is None:
+                return frozen_now.replace(tzinfo=None)
+            return frozen_now.astimezone(tz)
+
+    monkeypatch.setattr(dashboard_service_module, "datetime", FrozenDateTime)
 
     admin = User(
         tenant_id=tenant.id,
@@ -161,14 +173,7 @@ def test_dashboard_stats_include_delta_since_previous_login(client, db_session, 
     db_session.add(admin)
     db_session.commit()
 
-    admin_token = create_access_token(
-        admin.id,
-        extra_data={
-            "tenant_id": admin.tenant_id,
-            "role": admin.role,
-            "is_tenant_admin": admin.is_tenant_admin,
-        },
-    )
+    admin_token = issue_session_bound_access_token(db_session, user=admin, channel="test_dashboard")
 
     response = client.get("/api/v1/stats/dashboard", headers=_auth_header(admin_token))
     assert response.status_code == 200

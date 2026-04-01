@@ -43,7 +43,7 @@
 | --- | --- | --- |
 | 项目结构 | 已形成新主线，但仍有存量目录并存 | 处于“新结构已建立、旧结构仍在收口”的阶段 |
 | 功能主链路 | 已打通 | Web、微信小程序、后端主业务链路可本地联调 |
-| 本地质量 | 已刷新 2026-04-01 基线 | Web / 小程序 / 登录 smoke 通过，但后端全量回归发现 1 个 dashboard 统计失败 |
+| 本地质量 | 已恢复 2026-04-01 全绿基线 | 后端 / Web / 小程序 / 登录 smoke 均通过，可继续推进放行准备 |
 | 文档治理 | 已收口并建立门禁 | `docs` 与 `plans` 已压缩为少量常驻文档，状态文档更新门禁已建立，并已提供本地 Git hook |
 | 正式上线 readiness | 未完成 | 仍受云资源、微信平台、真机与云端 E2E 阻塞 |
 
@@ -173,7 +173,7 @@
 
 > 以下是目前文档中最近一次已记录、且可用于回溯的通过结果。
 
-- 后端回归：`264 passed, 1 failed`（`2026-04-01`，失败项：`backend/tests/test_dashboard_stats.py::test_dashboard_stats_include_delta_since_previous_login`）
+- 后端回归：`265 passed`（`2026-04-01`）
 - Web lint：`PASS`
 - Web 测试：`58 passed`
 - Web 构建：通过
@@ -773,6 +773,23 @@
   - `python scripts/smoke_login_matrix.py`：`PASS`
 - 状态结论：当前本地基线已刷新，但未恢复到“全绿”状态；进入放行准备前，应先修复 dashboard 统计回归并重新跑后端全量回归。
 
+### 6.33 2026-04-01 变更记录（dashboard 基线回归修复）
+
+- 变更类型：修复 + 基线恢复
+- 变更摘要：
+  - 修复 `backend/tests/test_dashboard_stats.py::test_dashboard_stats_include_delta_since_previous_login` 的时间漂移失稳问题。
+  - 在测试中冻结 `dashboard_service` 的当前时间，使 `delta_deadline_risk_count` 断言不再依赖真实日期推进。
+  - `QA-BE-BASELINE-01` 已关闭，后端全量回归恢复全绿。
+- 影响范围：`backend / docs`
+- 受影响目录：
+  - `backend/tests/test_dashboard_stats.py`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `python -m pytest backend/tests/test_dashboard_stats.py::test_dashboard_stats_include_delta_since_previous_login -q`：`1 passed`
+  - `python -m pytest backend/tests -q`：`265 passed`
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`：`PASS`
+- 状态结论：本地质量基线已恢复为全绿，后续可按既定顺序继续推进云资源、微信能力、真机验收与云端 E2E 放行项。
+
 ## 7. 当前未完成事项
 
 ## 7.1 正式上线阻塞项（P0）
@@ -807,16 +824,15 @@
 
 ## 7.3 工程收口剩余任务（非上线阻塞）
 
-- `QA-BE-BASELINE-01`：修复 `backend/tests/test_dashboard_stats.py::test_dashboard_stats_include_delta_since_previous_login` 暴露的 dashboard 增量统计回归，并恢复后端全量回归全绿。
+- 当前无新增非上线阻塞工程收口任务；如后续基线再出现回归，按“先恢复全绿，再推进放行项”处理。
 
 ## 8. 推荐执行顺序
 
-1. 先修复 `QA-BE-BASELINE-01`
-2. 再完成 `W12-T03 / W12-T04 / W12-T08`
-3. 再完成 `WX-01` 与 `QA-03`
-4. 再做 `W12-V01 ~ W12-V06`
-5. 再做 `W13-T01 ~ W13-T06`
-6. 最后完成 `W13-T07 / W13-T08`
+1. 先完成 `W12-T03 / W12-T04 / W12-T08`
+2. 再完成 `WX-01` 与 `QA-03`
+3. 再做 `W12-V01 ~ W12-V06`
+4. 再做 `W13-T01 ~ W13-T06`
+5. 最后完成 `W13-T07 / W13-T08`
 
 ## 9. 以后维护时的更新模板
 
