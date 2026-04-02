@@ -1,4 +1,4 @@
-# Auth 模块边界收口清单
+﻿# Auth 模块边界收口清单
 
 更新时间：2026-04-01
 当前分支：`codex/refactor-backend-module-boundaries`

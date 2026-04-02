@@ -3,7 +3,7 @@
 > 本文档是当前仓库的**单一状态真源**。  
 > 以后每次发生**优化、更新、修复、结构调整、验收结论变化**，都必须同步维护本文档。
 
-更新时间：`2026-04-01`（Asia/Shanghai）
+更新时间：`2026-04-02`（Asia/Shanghai）
 
 ## 1. 文档定位与维护规则
 
@@ -789,6 +789,24 @@
   - `python -m pytest backend/tests -q`：`265 passed`
   - `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`：`PASS`
 - 状态结论：本地质量基线已恢复为全绿，后续可按既定顺序继续推进云资源、微信能力、真机验收与云端 E2E 放行项。
+
+### 6.34 2026-04-02 变更记录（新增工程落地作业单）
+
+- 变更类型：文档治理 + 执行收口
+- 变更摘要：
+  - 新增 `docs/release-execution-workorder.md`，将放行前基础设施、微信 / 真机联调、云端联调、放行门禁、上线后稳定期、稳定后切 `dev` 的执行顺序统一为单人作业单。
+  - 同步更新 `docs/README.md` 与 `docs/documentation-map.md`，使执行入口与文档索引对齐。
+  - 修正文档门禁暴露的现存历史文档索引缺失与编码不一致问题，恢复 `check-docs-integrity` 可用状态。
+- 影响范围：`docs`
+- 受影响目录：
+  - `docs/release-execution-workorder.md`
+  - `docs/README.md`
+  - `docs/documentation-map.md`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`：`PASS`
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`：`PASS`
+- 状态结论：当前执行口径已从“看状态文档自行拆解”升级为“状态真源 + 作业单并行”，后续单人推进放行与上线工作时可直接按作业单逐项执行。
 
 ## 7. 当前未完成事项
 
