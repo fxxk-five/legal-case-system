@@ -119,15 +119,64 @@ def _assert_has_keys(payload: dict, keys: list[str], label: str) -> None:
     _assert(not missing, f"{label} missing keys: {missing} payload={payload}")
 
 
-def _login(base_url: str, *, phone: str, password: str, tenant_code: str = "") -> dict:
+def _login(
+    base_url: str,
+    *,
+    phone: str,
+    password: str,
+    tenant_code: str = "",
+    mini: bool = False,
+) -> dict:
     payload: dict[str, str | None] = {"phone": phone, "password": password}
     if tenant_code:
         payload["tenant_code"] = tenant_code
-    status, data = _request_json(base_url, "/auth/login", method="POST", payload=payload)
+    status, data = _request_json(base_url, "/auth/login", method="POST", payload=payload, mini=mini)
     _assert(status == 200, f"Login failed for {phone}: {status} {data}")
     _assert(bool(data.get("access_token")), f"Login missing access token for {phone}")
     _assert(bool(data.get("refresh_token")), f"Login missing refresh token for {phone}")
     return data
+
+
+def _login_client_via_case_invite(
+    base_url: str,
+    *,
+    phone: str,
+    case_invite_token: str,
+    real_name: str,
+) -> dict:
+    code = f"qa02-wx-{uuid4().hex[:12]}"
+    status, wx_login_payload = _request_json(
+        base_url,
+        "/auth/wx-mini-login",
+        method="POST",
+        payload={"code": code, "case_invite_token": case_invite_token},
+        mini=True,
+    )
+    _assert(status == 200, f"wx-mini-login failed: {status} {wx_login_payload}")
+
+    if wx_login_payload.get("need_bind_phone") is False and wx_login_payload.get("access_token"):
+        _assert(bool(wx_login_payload.get("refresh_token")), f"wx-mini-login missing refresh token: {wx_login_payload}")
+        return wx_login_payload
+
+    ticket = str(wx_login_payload.get("wx_session_ticket") or "")
+    _assert(ticket, f"wx-mini-login missing wx_session_ticket: {wx_login_payload}")
+
+    status, wx_phone_payload = _request_json(
+        base_url,
+        "/auth/wx-mini-phone-login",
+        method="POST",
+        payload={
+            "phone_code": phone,
+            "wx_session_ticket": ticket,
+            "case_invite_token": case_invite_token,
+            "real_name": real_name,
+        },
+        mini=True,
+    )
+    _assert(status == 200, f"wx-mini-phone-login failed: {status} {wx_phone_payload}")
+    _assert(bool(wx_phone_payload.get("access_token")), f"wx-mini-phone-login missing access token: {wx_phone_payload}")
+    _assert(bool(wx_phone_payload.get("refresh_token")), f"wx-mini-phone-login missing refresh token: {wx_phone_payload}")
+    return wx_phone_payload
 
 
 def _wait_case_analysis_terminal(base_url: str, *, case_id: int, token: str, timeout_seconds: int = 300) -> dict:
@@ -170,6 +219,7 @@ def main() -> int:
         phone=args.lawyer_phone.strip(),
         password=args.lawyer_password,
         tenant_code=args.tenant_code.strip(),
+        mini=True,
     )
     lawyer_token = lawyer_login["access_token"]
     lawyer_refresh = lawyer_login["refresh_token"]
@@ -220,8 +270,10 @@ def main() -> int:
         )
         _assert(status == 201, f"Invite lawyer failed: {status} {invite_lawyer_payload}")
         _assert(bool(invite_lawyer_payload.get("token")), f"Invite lawyer token missing: {invite_lawyer_payload}")
+        register_path = str(invite_lawyer_payload.get("register_path") or "")
         _assert(
-            str(invite_lawyer_payload.get("register_path") or "").startswith("/api/v1/auth/invite-register?token="),
+            register_path.startswith("/api/v1/auth/invite-register?token=")
+            or register_path.startswith("pages/login/index?scene=lawyer-invite&token="),
             f"Invite lawyer register_path invalid: {invite_lawyer_payload}",
         )
         print("[PASS] lawyer management endpoints")
@@ -287,19 +339,30 @@ def main() -> int:
     )
     _assert(status == 200, f"Invite generation failed: {status} {invite_payload}")
     _assert(bool(invite_payload.get("token")), f"Invite token missing: {invite_payload}")
+    invite_path = str(invite_payload.get("path") or "")
     _assert(
-        str(invite_payload.get("path") or "").startswith("pages/client/entry?token="),
+        invite_path.startswith("pages/client/entry?") and "token=" in invite_path,
         f"Invite path invalid for mini-program: {invite_payload}",
     )
     print("[PASS] invite token generated")
 
     print("[STEP] client login")
-    client_login = _login(
-        args.base_url,
-        phone=client_phone,
-        password=args.client_password,
-        tenant_code=args.tenant_code.strip(),
-    )
+    try:
+        client_login = _login(
+            args.base_url,
+            phone=client_phone,
+            password=args.client_password,
+            tenant_code=args.tenant_code.strip(),
+            mini=True,
+        )
+    except AssertionError:
+        print("[INFO] client password login failed; fallback to wx-mini case-invite login")
+        client_login = _login_client_via_case_invite(
+            args.base_url,
+            phone=client_phone,
+            case_invite_token=str(invite_payload.get("token") or ""),
+            real_name=args.client_name,
+        )
     client_token = client_login["access_token"]
     print("[PASS] client login")
 

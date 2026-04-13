@@ -1,4 +1,4 @@
-# 法律案件AI辅助系统 (Legal Case AI System)
+﻿# 法律案件AI辅助系统 (Legal Case AI System)
 
 本项目是一个专为律师和当事人设计的智能化案件管理与分析平台。核心理念是**“极简操作，AI代劳”**：律师只需管理案件，当事人只需上传材料，繁琐的材料解析、事实提取、法律分析和证据核实全部由后台AI自动化流水线完成。
 
@@ -63,12 +63,14 @@ legal-case-system/
 *   **环境搭建与启动**：请参考 `docs/project-setup.md`
 *   **详细架构与接口**：请参考 `docs/ARCHITECTURE-INTERFACE-BLUEPRINT.md`
 *   **API 契约**：请参考 `docs/API-CONTRACTS.md`
+*   **文档总入口**：请参考 `docs/README.md`
+*   **终端用户操作手册（Web + 小程序）**：请参考 `docs/user-manual.md`
 
 ## 5. 当前进度与快速验证
 
 当前项目已完成 P0 主链路落地，验收与迭代请以以下两份文档为准：
 
-*   **最终验收清单（需求映射 + 证据路径）**：`docs/final-acceptance-checklist.md`
-*   **项目框架与阶段状态（含 2026-03 实施状态、P1/P2 待办）**：`docs/PROJECT-FRAMEWORK.md`
+*   **最终验收清单（联调 / 放行 / 回滚门禁）**：`docs/final-acceptance-checklist.md`
+*   **当前项目真实状态（已完成 / 阻塞 / 下一步）**：`docs/current-project-status.md`
 
 建议先阅读验收清单，再对照项目框架中的阶段边界执行后续迭代。

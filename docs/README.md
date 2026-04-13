@@ -1,35 +1,30 @@
-# 法律案件AI助手 (Legal Case AI Assistant)
+﻿# 项目文档入口
 
-## 1. 项目简介
-本项目是一个专为律师设计的案件管理与AI辅助分析系统。通过AI技术自动处理案件材料，将律师从繁琐的文档阅读中解放出来，直接获取案件核心事实、法律风险分析和证据核实结果。
+> `docs` 已按“只保留仍有执行价值的信息”收口；历史阶段报告、执行单、归档记录已合并删除。
 
-## 2. 核心业务逻辑 (律师视角)
+## 建议先读
 
-### 2.1 案件管理
-- **新建案件**：律师在Web端或小程序新建案件，填写基本信息。
-- **邀请当事人**：系统生成邀请凭证，律师通过微信发送给当事人。
-- **查看结果**：律师在Web端直接查看AI自动生成的分析报告，无需手动操作AI流程。
+1. `docs/current-project-status.md`：当前实现状态、上线阻塞项、推荐执行顺序。
+2. `docs/release-execution-workorder.md`：放行前、上线后稳定期、稳定后切 `dev` 的单人执行作业单。
+3. `docs/restructure-overall-assessment-2026-03-26.md`：本轮重构收口结果、验证证据、剩余风险。
+4. `docs/documentation-map.md`：`docs` 与 `plans` 的完整索引。
+5. `docs/user-manual.md`：按当前角色与实际可用功能整理的用户手册。
+6. `docs/final-acceptance-checklist.md`：联调、上线、放行使用的验收门禁。
 
-### 2.2 AI 自动化流水线 (核心亮点)
-- **上传即分析**：当事人或律师批量上传材料后，系统自动触发AI处理。
-- **全自动执行**：
-    1. **向量化**：材料自动进入RAG系统。
-    2. **三步走分析**：AI自动完成“文档解析 -> 法律分析 -> 证据核实”。
-- **增量更新**：后续补充上传新材料，AI会自动重新分析并更新结果。
+## 按主题查看
 
-## 3. 角色与端职责
+- 本地开发与联调：`docs/project-setup.md`
+- 生产部署：`docs/production-deployment.md`
+- 工程推进与上线作业单：`docs/release-execution-workorder.md`
+- 系统结构：`docs/ARCHITECTURE-INTERFACE-BLUEPRINT.md`
+- 接口契约：`docs/API-CONTRACTS.md`
+- 按角色最短阅读路径：`docs/role-based-reading-map.md`
 
-| 角色 | 主要端 | 核心职责 |
-|---|---|---|
-| **律师** | Web端 (主) / 小程序 | 管理案件、邀请当事人、查看AI分析结果 |
-| **当事人** | 小程序 | 接受邀请、批量上传案件材料 |
-| **系统AI** | 后台服务 | 自动向量化、自动执行三步走分析、推送进度 |
+## 文档维护规则
 
-## 4. 快速开始 (开发/演示)
-请参考以下详细文档：
-- `docs/project-setup.md`：环境搭建与启动
-- `docs/ARCHITECTURE-INTERFACE-BLUEPRINT.md`：系统架构与详细流程
-- `docs/API-CONTRACTS.md`：接口契约
-
----
-*本项目致力于打造“上传即得”的智能化法律办案体验。*
+- 每次优化、更新、修复、结构调整后，必须先更新 `docs/current-project-status.md`。
+- 架构收口、问题闭环、风险结论更新 `docs/restructure-overall-assessment-2026-03-26.md`。
+- 新增或保留的 `docs/*.md`、`plans/*.md` 必须登记到 `docs/documentation-map.md`。
+- 合并前执行 `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`。
+- 如有代码、脚本、部署、CI 等非文档变更，还必须执行 `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`。
+- 建议本地执行 `powershell -ExecutionPolicy Bypass -File scripts/install-git-hooks.ps1`，启用 `pre-commit` / `pre-push` 自动门禁。

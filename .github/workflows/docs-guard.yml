@@ -1,0 +1,42 @@
+name: Documentation Guard
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  docs-guard:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run docs integrity check
+        shell: pwsh
+        run: ./scripts/check-docs-integrity.ps1
+
+      - name: Determine diff range
+        id: refs
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            git fetch origin "${{ github.base_ref }}" --depth=1
+            echo "base_ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+            echo "head_ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          before="${{ github.event.before }}"
+          if [ -z "$before" ] || [ "$before" = "0000000000000000000000000000000000000000" ]; then
+            before="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+
+          echo "base_ref=$before" >> "$GITHUB_OUTPUT"
+          echo "head_ref=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+
+      - name: Enforce status document update
+        if: steps.refs.outputs.base_ref != ''
+        shell: pwsh
+        run: ./scripts/check-status-doc-update.ps1 -BaseRef "${{ steps.refs.outputs.base_ref }}" -HeadRef "${{ steps.refs.outputs.head_ref }}"
