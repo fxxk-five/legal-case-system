@@ -1,15 +1,19 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
-from app.core.errors import AppError, ErrorCode
 from app.db.session import get_db
-from app.dependencies.auth import get_current_user
-from app.models.notification import Notification
+from app.modules.auth.deps import get_current_user
+from app.modules.notifications.models.notification import Notification
+from app.modules.notifications.service import NotificationsService
 from app.models.user import User
-from app.schemas.notification import NotificationRead
+from app.modules.notifications.schemas import NotificationRead
 
 
 router = APIRouter(prefix="/notifications", tags=["Notifications"])
+
+
+def _notifications_service(db: Session) -> NotificationsService:
+    return NotificationsService(db)
 
 
 @router.get("", response_model=list[NotificationRead])
@@ -18,17 +22,10 @@ def list_notifications(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> list[Notification]:
-    query = (
-        db.query(Notification)
-        .filter(
-            Notification.user_id == current_user.id,
-            Notification.tenant_id == current_user.tenant_id,
-        )
-        .order_by(Notification.created_at.desc())
+    return _notifications_service(db).list_notifications(
+        unread_only=unread_only,
+        current_user=current_user,
     )
-    if unread_only:
-        query = query.filter(Notification.is_read.is_(False))
-    return query.all()
 
 
 @router.patch("/{notification_id}/read", response_model=NotificationRead)
@@ -37,25 +34,8 @@ def mark_notification_read(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> Notification:
-    notification = (
-        db.query(Notification)
-        .filter(
-            Notification.id == notification_id,
-            Notification.user_id == current_user.id,
-            Notification.tenant_id == current_user.tenant_id,
-        )
-        .first()
+    return _notifications_service(db).mark_notification_read(
+        notification_id=notification_id,
+        current_user=current_user,
     )
-    if notification is None:
-        raise AppError(
-            status_code=status.HTTP_404_NOT_FOUND,
-            code=ErrorCode.NOTIFICATION_NOT_FOUND,
-            message="通知不存在。",
-            detail="通知不存在。",
-        )
 
-    notification.is_read = True
-    db.add(notification)
-    db.commit()
-    db.refresh(notification)
-    return notification

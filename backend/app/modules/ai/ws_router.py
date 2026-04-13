@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import asyncio
 from datetime import datetime, timezone
@@ -7,11 +7,9 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from jose import JWTError, jwt
 
 from app.core.config import settings
-from app.core.roles import normalize_role
+from app.core.security import ACCESS_TOKEN_TYPE
 from app.db.session import SessionLocal
-from app.models.ai_task import AITask
-from app.models.case import Case
-from app.models.user import User
+from app.modules.ai.ws_service import AIWebSocketService
 
 
 router = APIRouter(tags=["AI-WebSocket"])
@@ -24,6 +22,7 @@ def _get_session_factory(websocket: WebSocket):
 def _failed_payload(*, task_id: str, error: str) -> dict:
     return {
         "type": "failed",
+        "status": "failed",
         "task_id": task_id,
         "progress": 0,
         "error": error,
@@ -46,19 +45,6 @@ async def _client_disconnected(websocket: WebSocket) -> bool:
         return True
     except RuntimeError:
         return True
-
-
-def _client_owns_task_case(*, db, tenant_id: int, user_id: int, task: AITask) -> bool:
-    return (
-        db.query(Case.id)
-        .filter(
-            Case.id == task.case_id,
-            Case.tenant_id == tenant_id,
-            Case.client_id == user_id,
-        )
-        .first()
-        is not None
-    )
 
 
 @router.websocket("/ws/ai/tasks/{task_id}")
@@ -87,8 +73,18 @@ async def ai_task_progress(websocket: WebSocket, task_id: str) -> None:
         )
         return
 
+    if payload.get("token_type") != ACCESS_TOKEN_TYPE:
+        await _close_with_error(
+            websocket=websocket,
+            task_id=task_id,
+            error="Authentication failed: access token is required.",
+            close_code=4401,
+        )
+        return
+
     user_id_raw = payload.get("sub")
     tenant_id_raw = payload.get("tenant_id")
+    session_id_raw = payload.get("sid")
 
     try:
         user_id = int(user_id_raw)
@@ -102,16 +98,33 @@ async def ai_task_progress(websocket: WebSocket, task_id: str) -> None:
         )
         return
 
-    with session_factory() as db:
-        user = (
-            db.query(User)
-            .filter(
-                User.id == user_id,
-                User.tenant_id == tenant_id,
-            )
-            .first()
+    if session_id_raw is None:
+        await _close_with_error(
+            websocket=websocket,
+            task_id=task_id,
+            error="Authentication failed: session-bound access token is required.",
+            close_code=4401,
         )
-        if user is None or user.status != 1:
+        return
+
+    try:
+        session_id = int(session_id_raw)
+    except (TypeError, ValueError):
+        await _close_with_error(
+            websocket=websocket,
+            task_id=task_id,
+            error="Authentication failed: token payload is invalid.",
+            close_code=4401,
+        )
+        return
+
+    with session_factory() as db:
+        ws_service = AIWebSocketService(db)
+        user = ws_service.get_active_user(
+            user_id=user_id,
+            tenant_id=tenant_id,
+        )
+        if user is None:
             await _close_with_error(
                 websocket=websocket,
                 task_id=task_id,
@@ -120,36 +133,33 @@ async def ai_task_progress(websocket: WebSocket, task_id: str) -> None:
             )
             return
 
-        viewer_role = normalize_role(user.role)
-
-        task = (
-            db.query(AITask)
-            .filter(
-                AITask.task_id == task_id,
-                AITask.tenant_id == tenant_id,
-            )
-            .first()
-        )
-        if task is None:
+        if ws_service.resolve_active_access_session(
+            user_id=user_id,
+            tenant_id=tenant_id,
+            session_id=session_id,
+        ) is None:
             await _close_with_error(
                 websocket=websocket,
                 task_id=task_id,
-                error="AI task not found or access denied.",
-                close_code=4404,
+                error="Authentication failed: login session has expired.",
+                close_code=4401,
             )
             return
 
-        if viewer_role == "client" and not _client_owns_task_case(
-            db=db,
+        viewer_role = ws_service.get_viewer_role(user=user)
+        task = ws_service.get_visible_task(
+            task_id=task_id,
             tenant_id=tenant_id,
+            viewer_role=viewer_role,
             user_id=user_id,
-            task=task,
-        ):
+        )
+        if task is None:
+            close_code = 4403 if viewer_role == "client" else 4404
             await _close_with_error(
                 websocket=websocket,
                 task_id=task_id,
                 error="AI task not found or access denied.",
-                close_code=4403,
+                close_code=close_code,
             )
             return
 
@@ -170,27 +180,24 @@ async def ai_task_progress(websocket: WebSocket, task_id: str) -> None:
                 break
 
             with session_factory() as db:
-                task = (
-                    db.query(AITask)
-                    .filter(
-                        AITask.task_id == task_id,
-                        AITask.tenant_id == tenant_id,
-                    )
-                    .first()
-                )
-
-                if task is None:
+                ws_service = AIWebSocketService(db)
+                if ws_service.resolve_active_access_session(
+                    user_id=user_id,
+                    tenant_id=tenant_id,
+                    session_id=session_id,
+                ) is None:
                     await websocket.send_json(
-                        _failed_payload(task_id=task_id, error="AI task not found or access denied.")
+                        _failed_payload(task_id=task_id, error="Authentication failed: login session has expired.")
                     )
                     break
 
-                if viewer_role == "client" and not _client_owns_task_case(
-                    db=db,
+                task = ws_service.get_visible_task(
+                    task_id=task_id,
                     tenant_id=tenant_id,
+                    viewer_role=viewer_role,
                     user_id=user_id,
-                    task=task,
-                ):
+                )
+                if task is None:
                     await websocket.send_json(
                         _failed_payload(task_id=task_id, error="AI task not found or access denied.")
                     )
@@ -204,6 +211,7 @@ async def ai_task_progress(websocket: WebSocket, task_id: str) -> None:
                 if should_send:
                     payload = {
                         "type": "progress",
+                        "status": task.status,
                         "task_id": task.task_id,
                         "progress": task.progress,
                         "message": task.message,
@@ -212,7 +220,7 @@ async def ai_task_progress(websocket: WebSocket, task_id: str) -> None:
                     }
                     if task.status == "completed":
                         payload["type"] = "completed"
-                    elif task.status == "failed":
+                    elif task.status in {"failed", "dead"}:
                         payload["type"] = "failed"
                         payload["error"] = task.error_message or "AI task execution failed."
                     await websocket.send_json(payload)
@@ -220,7 +228,7 @@ async def ai_task_progress(websocket: WebSocket, task_id: str) -> None:
                     last_progress = task.progress
                     since = None
 
-                if task.status in {"completed", "failed"}:
+                if task.status in {"completed", "failed", "dead"}:
                     break
 
             await asyncio.sleep(1)

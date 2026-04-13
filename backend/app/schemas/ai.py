@@ -1,0 +1,43 @@
+"""Compatibility export for AI schemas."""
+
+from app.modules.ai.schemas import (
+    AITaskListItem,
+    AITaskListResponse,
+    AITaskRetryRequest,
+    AITaskRetryResponse,
+    AITaskStatusRead,
+    AnalysisRequest,
+    AnalysisResultListResponse,
+    AnalysisResultRead,
+    AnalysisStartResponse,
+    CaseFactListResponse,
+    CaseFactRead,
+    DocumentParseRequest,
+    DocumentParseResponse,
+    FalsificationRecordRead,
+    FalsificationRequest,
+    FalsificationResultResponse,
+    FalsificationStartResponse,
+    FalsificationSummary,
+)
+
+__all__ = [
+    "AITaskListItem",
+    "AITaskListResponse",
+    "AITaskRetryRequest",
+    "AITaskRetryResponse",
+    "AITaskStatusRead",
+    "AnalysisRequest",
+    "AnalysisResultListResponse",
+    "AnalysisResultRead",
+    "AnalysisStartResponse",
+    "CaseFactListResponse",
+    "CaseFactRead",
+    "DocumentParseRequest",
+    "DocumentParseResponse",
+    "FalsificationRecordRead",
+    "FalsificationRequest",
+    "FalsificationResultResponse",
+    "FalsificationStartResponse",
+    "FalsificationSummary",
+]
