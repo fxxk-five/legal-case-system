@@ -7,14 +7,15 @@ from pathlib import Path
 from uuid import uuid4
 
 from app.core.config import settings
-from app.core.security import create_access_token, get_password_hash
-from app.models.ai_analysis import AIAnalysisResult
-from app.models.ai_task import AITask
-from app.models.case_flow import CaseFlow
+from app.core.security import get_password_hash
+from app.modules.ai.models.ai_analysis import AIAnalysisResult
+from app.modules.ai.models.ai_task import AITask
+from app.modules.cases.models.case_flow import CaseFlow
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.scripts.ai_worker import is_heartbeat_fresh, write_heartbeat
-from app.services.ai import AIService
+from app.modules.ai.service import AIService
+from app.modules.auth.service import issue_session_bound_access_token
 
 
 def auth_header(token: str) -> dict[str, str]:
@@ -211,14 +212,7 @@ def test_super_admin_can_update_budget_configs(client, seeded_data, session_fact
         db.add(super_admin)
         db.commit()
         db.refresh(super_admin)
-        super_token = create_access_token(
-            super_admin.id,
-            extra_data={
-                "tenant_id": super_admin.tenant_id,
-                "role": super_admin.role,
-                "is_tenant_admin": super_admin.is_tenant_admin,
-            },
-        )
+        super_token = issue_session_bound_access_token(db, user=super_admin, channel="test_ai_budget")
 
     headers = auth_header(super_token)
     patch_tenant = client.patch(

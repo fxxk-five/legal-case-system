@@ -5,7 +5,7 @@ from sqlalchemy import DECIMAL, ForeignKey, Integer, JSON, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class AIAnalysisResult(Base, TimestampMixin):
@@ -27,4 +27,5 @@ class AIAnalysisResult(Base, TimestampMixin):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     case = relationship("Case")
+
 

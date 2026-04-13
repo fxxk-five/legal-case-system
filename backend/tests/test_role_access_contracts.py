@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from app.core.security import create_access_token, get_password_hash
-from app.models.case import Case
-from app.models.file import File
-from app.models.notification import Notification
+from app.core.config import settings
+from app.core.security import get_password_hash
+from app.modules.cases.models.case import Case
+from app.modules.files.models.file import File
+from app.modules.notifications.models.notification import Notification
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.modules.auth.service import issue_session_bound_access_token
 
 
 def _auth_header(token: str) -> dict[str, str]:
@@ -23,23 +25,30 @@ def _mini_headers(token: str) -> dict[str, str]:
 def test_invite_qrcode_requires_mini_program_source(client, seeded_data):
     case_id = seeded_data["case"].id
     lawyer_token = seeded_data["lawyer_token"]
+    lawyer_mini_token = seeded_data["lawyer_mini_token"]
 
     forbidden_resp = client.get(f"/api/v1/cases/{case_id}/invite-qrcode", headers=_auth_header(lawyer_token))
     assert forbidden_resp.status_code == 403
     assert forbidden_resp.json()["code"] == "FORBIDDEN"
 
-    ok_resp = client.get(f"/api/v1/cases/{case_id}/invite-qrcode", headers=_mini_headers(lawyer_token))
+    spoofed_resp = client.get(f"/api/v1/cases/{case_id}/invite-qrcode", headers=_mini_headers(lawyer_token))
+    assert spoofed_resp.status_code == 403
+    assert spoofed_resp.json()["code"] == "FORBIDDEN"
+
+    ok_resp = client.get(f"/api/v1/cases/{case_id}/invite-qrcode", headers=_mini_headers(lawyer_mini_token))
     assert ok_resp.status_code == 200
     payload = ok_resp.json()
     assert payload["case_id"] == case_id
     assert payload["tenant_id"] == seeded_data["tenant"].id
     assert payload["token"]
-    assert payload["path"].startswith("pages/login/index?scene=client-case&token=")
+    expected_prefix = f"{settings.WECHAT_MINIAPP_CLIENT_ENTRY_PAGE}?scene=client-case&token="
+    assert payload["path"].startswith(expected_prefix)
 
 
 def test_client_file_upload_policy_requires_mini_program_source(client, seeded_data):
     case_id = seeded_data["case"].id
     client_token = seeded_data["client_token"]
+    client_mini_token = seeded_data["client_mini_token"]
 
     forbidden_resp = client.get(
         f"/api/v1/files/upload-policy?case_id={case_id}&file_name=evidence.pdf",
@@ -48,9 +57,16 @@ def test_client_file_upload_policy_requires_mini_program_source(client, seeded_d
     assert forbidden_resp.status_code == 403
     assert forbidden_resp.json()["code"] == "FORBIDDEN"
 
-    ok_resp = client.get(
+    spoofed_resp = client.get(
         f"/api/v1/files/upload-policy?case_id={case_id}&file_name=evidence.pdf",
         headers=_mini_headers(client_token),
+    )
+    assert spoofed_resp.status_code == 403
+    assert spoofed_resp.json()["code"] == "FORBIDDEN"
+
+    ok_resp = client.get(
+        f"/api/v1/files/upload-policy?case_id={case_id}&file_name=evidence.pdf",
+        headers=_mini_headers(client_mini_token),
     )
     assert ok_resp.status_code == 200
     assert ok_resp.json()["file_field_name"] == "upload"
@@ -189,14 +205,7 @@ def test_tenant_member_approve_requires_tenant_admin(client, db_session, seeded_
     assert lawyer_forbidden.status_code == 403
     assert lawyer_forbidden.json()["code"] == "FORBIDDEN"
 
-    admin_token = create_access_token(
-        tenant_admin.id,
-        extra_data={
-            "tenant_id": tenant_admin.tenant_id,
-            "role": tenant_admin.role,
-            "is_tenant_admin": tenant_admin.is_tenant_admin,
-        },
-    )
+    admin_token = issue_session_bound_access_token(db_session, user=tenant_admin, channel="test_access_contract")
     approved_resp = client.patch(
         f"/api/v1/tenants/members/{pending_lawyer.id}/approve",
         headers=_auth_header(admin_token),
@@ -227,13 +236,10 @@ def test_lawyer_cannot_read_case_from_other_tenant_even_with_same_role(client, d
     db_session.add(another_lawyer)
     db_session.commit()
 
-    another_lawyer_token = create_access_token(
-        another_lawyer.id,
-        extra_data={
-            "tenant_id": another_lawyer.tenant_id,
-            "role": another_lawyer.role,
-            "is_tenant_admin": another_lawyer.is_tenant_admin,
-        },
+    another_lawyer_token = issue_session_bound_access_token(
+        db_session,
+        user=another_lawyer,
+        channel="test_access_contract",
     )
 
     resp = client.get(f"/api/v1/cases/{seeded_data['case'].id}", headers=_auth_header(another_lawyer_token))
@@ -273,13 +279,10 @@ def test_tenant_admin_cannot_approve_member_from_other_tenant(client, db_session
     db_session.add(another_admin)
     db_session.commit()
 
-    another_admin_token = create_access_token(
-        another_admin.id,
-        extra_data={
-            "tenant_id": another_admin.tenant_id,
-            "role": another_admin.role,
-            "is_tenant_admin": another_admin.is_tenant_admin,
-        },
+    another_admin_token = issue_session_bound_access_token(
+        db_session,
+        user=another_admin,
+        channel="test_access_contract",
     )
 
     resp = client.patch(
@@ -335,13 +338,10 @@ def test_lawyer_cannot_mark_other_tenant_notification_as_read(client, db_session
     db_session.add_all([notification, another_lawyer])
     db_session.commit()
 
-    another_lawyer_token = create_access_token(
-        another_lawyer.id,
-        extra_data={
-            "tenant_id": another_lawyer.tenant_id,
-            "role": another_lawyer.role,
-            "is_tenant_admin": another_lawyer.is_tenant_admin,
-        },
+    another_lawyer_token = issue_session_bound_access_token(
+        db_session,
+        user=another_lawyer,
+        channel="test_access_contract",
     )
 
     resp = client.patch(

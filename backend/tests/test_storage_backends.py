@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import json
+from base64 import b64decode
 from pathlib import Path
 
-from app.models.file import File
+from app.modules.files.models.file import File
 
 
 def _auth_header(token: str) -> dict[str, str]:
@@ -37,8 +39,15 @@ class FakeCOSClient:
     def exists(self, *, storage_key: str) -> bool:
         return storage_key in self.objects
 
+    def head_object(self, *, storage_key: str):
+        obj = self.objects.get(storage_key)
+        if obj is None:
+            raise KeyError(storage_key)
+        body = obj.get("body") or b""
+        return {"Content-Length": str(len(body))}
+
     def list_objects(self, *, prefix: str):
-        from app.services.storage import StorageObjectInfo
+        from app.integrations.storage.service import StorageObjectInfo
 
         keys = sorted(key for key in self.objects if key.startswith(prefix))
         return [StorageObjectInfo(storage_key=key) for key in keys]
@@ -57,7 +66,7 @@ class FakeCOSClient:
 
 def _configure_cos_settings(monkeypatch, fake_client: FakeCOSClient, *, direct_upload_enabled: bool = False) -> None:
     from app.core.config import settings
-    from app.services import storage as storage_module
+    from app.integrations.storage import service as storage_module
 
     monkeypatch.setattr(settings, "STORAGE_BACKEND", "cos")
     monkeypatch.setattr(settings, "STORAGE_DIRECT_UPLOAD_ENABLED", direct_upload_enabled)
@@ -70,7 +79,7 @@ def _configure_cos_settings(monkeypatch, fake_client: FakeCOSClient, *, direct_u
 
 
 def test_cos_upload_policy_defaults_to_server_proxy(monkeypatch):
-    from app.services.storage import get_storage_backend
+    from app.integrations.storage.service import get_storage_backend
 
     fake_client = FakeCOSClient()
     _configure_cos_settings(monkeypatch, fake_client, direct_upload_enabled=False)
@@ -90,7 +99,8 @@ def test_cos_upload_policy_defaults_to_server_proxy(monkeypatch):
 
 
 def test_cos_upload_policy_can_switch_to_direct_post(monkeypatch):
-    from app.services.storage import get_storage_backend
+    from app.core.config import settings
+    from app.integrations.storage.service import get_storage_backend
 
     fake_client = FakeCOSClient()
     _configure_cos_settings(monkeypatch, fake_client, direct_upload_enabled=True)
@@ -109,6 +119,8 @@ def test_cos_upload_policy_can_switch_to_direct_post(monkeypatch):
     assert policy.form_fields["key"] == policy.storage_key
     assert policy.form_fields["Content-Type"] == "application/pdf"
     assert "/_pending/" in policy.storage_key
+    policy_payload = json.loads(b64decode(policy.form_fields["policy"]).decode("utf-8"))
+    assert ["content-length-range", 0, settings.FILE_UPLOAD_MAX_SIZE_BYTES] in policy_payload["conditions"]
 
 
 def test_direct_upload_policy_includes_completion_metadata(client, seeded_data, monkeypatch):
@@ -226,6 +238,47 @@ def test_complete_direct_upload_rejects_missing_storage_object(client, seeded_da
     assert complete_response.json()["code"] == "FILE_UPLOAD_INVALID"
 
 
+def test_complete_direct_upload_rejects_oversized_storage_object(client, db_session, seeded_data, monkeypatch):
+    from app.core.config import settings
+
+    fake_client = FakeCOSClient()
+    _configure_cos_settings(monkeypatch, fake_client, direct_upload_enabled=True)
+    monkeypatch.setattr(settings, "FILE_UPLOAD_MAX_SIZE_BYTES", 8)
+
+    policy_response = client.get(
+        "/api/v1/files/upload-policy",
+        params={"case_id": seeded_data["case"].id, "file_name": "oversized.txt", "content_type": "text/plain"},
+        headers=_auth_header(seeded_data["lawyer_token"]),
+    )
+    assert policy_response.status_code == 200
+    policy = policy_response.json()
+    fake_client.objects[policy["storage_key"]] = {
+        "body": b"123456789",
+        "content_type": "text/plain",
+    }
+
+    complete_response = client.post(
+        policy["completion_url"],
+        json={"completion_token": policy["completion_token"]},
+        headers=_auth_header(seeded_data["lawyer_token"]),
+    )
+
+    assert complete_response.status_code == 413
+    assert complete_response.json()["code"] == "FILE_UPLOAD_INVALID"
+    assert policy["storage_key"] not in fake_client.objects
+    db_session.expire_all()
+    file_record = (
+        db_session.query(File)
+        .filter(
+            File.tenant_id == seeded_data["tenant"].id,
+            File.case_id == seeded_data["case"].id,
+            File.file_name == "oversized.txt",
+        )
+        .first()
+    )
+    assert file_record is None
+
+
 def test_delete_file_archives_object_when_retention_enabled(client, db_session, seeded_data, monkeypatch):
     from app.core.config import settings
 
@@ -312,7 +365,7 @@ def test_access_link_returns_signed_cos_url(client, db_session, seeded_data, mon
 
 
 def test_cos_backend_lists_objects_by_prefix(monkeypatch):
-    from app.services.storage import get_storage_backend
+    from app.integrations.storage.service import get_storage_backend
 
     fake_client = FakeCOSClient()
     _configure_cos_settings(monkeypatch, fake_client, direct_upload_enabled=False)

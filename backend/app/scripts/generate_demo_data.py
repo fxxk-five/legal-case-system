@@ -7,11 +7,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.security import get_password_hash
-from app.models.case import Case
-from app.models.file import File
-from app.models.notification import Notification
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.modules.cases.models.case import Case
+from app.modules.files.models.file import File
+from app.modules.notifications.models.notification import Notification
 
 
 def _get_or_create_user(

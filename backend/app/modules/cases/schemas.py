@@ -18,7 +18,7 @@ class CaseCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     legal_type: str = Field(min_length=1, max_length=50)
     client_phone: str = Field(min_length=11, max_length=20)
-    client_real_name: str = Field(default="Unnamed client", min_length=1, max_length=100)
+    client_real_name: str = Field(default="鏈懡鍚嶅綋浜嬩汉", min_length=1, max_length=100)
     deadline: datetime | None = None
     upload_guide: str | None = Field(default=None, max_length=2000)
 
@@ -153,3 +153,5 @@ class CaseReportAccessLinkRead(BaseModel):
     file_name: str
     access_url: str
     expires_in_seconds: int
+
+

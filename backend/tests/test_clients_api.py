@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 
 from app.core.security import create_access_token, get_password_hash
-from app.models.case import Case
-from app.models.file import File
+from app.modules.cases.models.case import Case
+from app.modules.files.models.file import File
 from app.models.tenant import Tenant
 from app.models.user import User
 

@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String
+from sqlalchemy import DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class Case(Base, TimestampMixin):
@@ -22,6 +22,9 @@ class Case(Base, TimestampMixin):
     analysis_status: Mapped[str] = mapped_column(String(30), nullable=False, default="not_started", index=True)
     analysis_progress: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     ai_case_budget_limit: Mapped[float | None] = mapped_column(Numeric(12, 2))
+    client_remark: Mapped[str | None] = mapped_column(Text, comment="client supplemental remark")
+    lawyer_remark: Mapped[str | None] = mapped_column(Text, comment="寰嬪笀鍐呴儴澶囨敞锛屼粎寰嬪笀鍙")
+    upload_guide: Mapped[str | None] = mapped_column(Text, comment="upload guide for client")
 
     tenant = relationship("Tenant", back_populates="cases")
     client = relationship("User", back_populates="client_cases", foreign_keys=[client_id])
@@ -32,3 +35,7 @@ class Case(Base, TimestampMixin):
     )
     files = relationship("File", back_populates="case")
     flows = relationship("CaseFlow", back_populates="case", cascade="all, delete-orphan")
+
+
+
+

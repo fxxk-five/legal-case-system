@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from app.models.ai_analysis import AIAnalysisResult
-from app.models.ai_task import AITask
+from app.modules.ai.models.ai_analysis import AIAnalysisResult
+from app.modules.ai.models.ai_task import AITask
 from app.models.tenant import Tenant
 
 

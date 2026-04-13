@@ -6,7 +6,7 @@ import re
 from sqlalchemy.orm import Session
 
 from app.core.legal_types import legal_type_case_code
-from app.models.case_number_sequence import CaseNumberSequence
+from app.modules.cases.repository import CasesRepository
 
 _DEFAULT_CASE_PREFIX = "CASE"
 _CASE_NUMBER_PADDING = 5
@@ -28,21 +28,14 @@ def _normalize_prefix(tenant_code: str | None) -> str:
 def generate_case_number(*, db: Session, tenant_id: int, tenant_code: str | None, legal_type: str | None) -> str:
     now = datetime.now(timezone.utc)
     year = now.year
-    sequence = (
-        db.query(CaseNumberSequence)
-        .filter(CaseNumberSequence.tenant_id == tenant_id, CaseNumberSequence.year == year)
-        .with_for_update()
-        .first()
-    )
+    repo = CasesRepository(db)
+    sequence = repo.get_case_number_sequence_for_update(tenant_id=tenant_id, year=year)
 
     if sequence is None:
-        sequence = CaseNumberSequence(tenant_id=tenant_id, year=year, next_value=1)
-        db.add(sequence)
-        db.flush()
+        sequence = repo.create_case_number_sequence(tenant_id=tenant_id, year=year, next_value=1)
 
     current_value = int(sequence.next_value)
     sequence.next_value = current_value + 1
-    db.add(sequence)
-    db.flush()
+    repo.save_case_number_sequence(sequence)
 
     return f"{_normalize_prefix(tenant_code)}-{year}-{legal_type_case_code(legal_type)}-{current_value:0{_CASE_NUMBER_PADDING}d}"

@@ -5,7 +5,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, JSON, String, Text, Unique
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class AITask(Base, TimestampMixin):
@@ -44,3 +44,4 @@ class AITask(Base, TimestampMixin):
     created_by: Mapped[int | None] = mapped_column(ForeignKey("users.id"), index=True)
 
     case = relationship("Case")
+

@@ -5,9 +5,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.errors import AppError
-from app.models.ai_task import AITask
+from app.modules.ai.models.ai_task import AITask
 from app.models.user import User
-from app.services.ai_queue import DBQueueAdapter, get_ai_queue_adapter
+from app.modules.ai.queue import DBQueueAdapter, get_ai_queue_adapter
 
 
 def test_db_queue_adapter_serializes_message(session_factory, seeded_data):

@@ -1,12 +1,15 @@
-from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy import ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class File(Base, TimestampMixin):
     __tablename__ = "files"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "file_url", name="uq_files_tenant_file_url"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     tenant_id: Mapped[int] = mapped_column(ForeignKey("tenants.id"), nullable=False, index=True)
@@ -26,3 +29,4 @@ class File(Base, TimestampMixin):
     @property
     def download_url(self) -> str:
         return f"/api/v1/files/{self.id}/access-link"
+

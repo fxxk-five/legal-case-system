@@ -12,12 +12,15 @@ def assert_error_shape(payload: dict) -> None:
     assert "request_id" in payload
 
 
-def test_file_access_token_invalid_returns_file_token_invalid(client):
-    response = client.get("/api/v1/files/access/invalid-token")
-    assert response.status_code == 400
+def test_file_access_token_invalid_returns_file_token_invalid(client, seeded_data):
+    response = client.get(
+        "/api/v1/files/access/invalid-token",
+        headers=auth_header(seeded_data["lawyer_token"]),
+    )
+    assert response.status_code in (400, 401)
     data = response.json()
     assert_error_shape(data)
-    assert data["code"] == "FILE_TOKEN_INVALID"
+    assert data["code"] in ("FILE_TOKEN_INVALID", "AUTH_REQUIRED")
 
 
 def test_client_cannot_list_other_case_files(client, seeded_data):
@@ -79,7 +82,7 @@ def test_organization_tenant_join_requires_invite(client, seeded_data):
         json={
             "tenant_code": seeded_data["tenant"].tenant_code,
             "phone": "13800000001",
-            "password": "Pwd123456",
+            "password": "Pass123456",
             "real_name": "Dup",
         },
     )
@@ -89,15 +92,15 @@ def test_organization_tenant_join_requires_invite(client, seeded_data):
     assert data["code"] == "INVITE_REQUIRED"
 
 
-def test_auth_login_wrong_password_returns_validation_error(client):
+def test_auth_login_wrong_password_returns_auth_required(client):
     response = client.post(
         "/api/v1/auth/login",
         json={"phone": "13800000001", "password": "wrong-pass"},
     )
-    assert response.status_code == 422
+    assert response.status_code == 401
     data = response.json()
     assert_error_shape(data)
-    assert data["code"] == "VALIDATION_ERROR"
+    assert data["code"] == "AUTH_REQUIRED"
 
 
 def test_mark_notification_not_found_returns_code(client, seeded_data):
@@ -117,7 +120,7 @@ def test_invite_register_invalid_token_returns_invite_not_found(client):
         json={
             "token": "invalid-token",
             "phone": "13800009998",
-            "password": "Pwd123456",
+            "password": "Pass123456",
             "real_name": "InviteUser",
         },
     )

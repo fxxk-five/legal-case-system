@@ -4,7 +4,7 @@ from sqlalchemy import DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class FileAccessGrant(Base, TimestampMixin):
@@ -17,3 +17,4 @@ class FileAccessGrant(Base, TimestampMixin):
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
     used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+

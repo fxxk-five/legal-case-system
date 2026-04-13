@@ -29,7 +29,7 @@ def test_canonical_case_files_list_matches_legacy(client, seeded_data):
 
 def test_canonical_upload_policy_matches_legacy(client, seeded_data):
     case_id = seeded_data["case"].id
-    headers = _mini_headers(seeded_data["lawyer_token"])
+    headers = _mini_headers(seeded_data["lawyer_mini_token"])
 
     legacy_resp = client.get(
         f"/api/v1/files/upload-policy?case_id={case_id}&file_name=evidence.pdf",
@@ -62,7 +62,7 @@ def test_canonical_upload_endpoint_works(client, seeded_data, monkeypatch, tmp_p
 
     response = client.post(
         f"/api/v1/cases/{case_id}/files",
-        headers=_mini_headers(seeded_data["lawyer_token"]),
+        headers=_mini_headers(seeded_data["lawyer_mini_token"]),
         files={"upload": ("canonical-upload.pdf", b"%PDF-1.4\n", "application/pdf")},
     )
     assert response.status_code == 201
@@ -103,7 +103,7 @@ def test_canonical_report_endpoint_returns_latest_pdf(client, seeded_data, monke
 
 def test_canonical_report_endpoint_generates_pdf_via_report_service(client, seeded_data, monkeypatch, tmp_path):
     from app.core.config import settings
-    from app.services.report import ReportService
+    from app.integrations.report.service import ReportService
 
     monkeypatch.setattr(settings, "LOCAL_STORAGE_DIR", str(tmp_path))
     monkeypatch.setattr(settings, "REPORT_SERVICE_BASE_URL", "http://report-service.mock")
@@ -131,7 +131,7 @@ def test_canonical_report_endpoint_falls_back_to_latest_on_render_error(client, 
 
     from app.core.config import settings
     from app.core.errors import AppError, ErrorCode
-    from app.services.report import ReportService
+    from app.integrations.report.service import ReportService
 
     monkeypatch.setattr(settings, "LOCAL_STORAGE_DIR", str(tmp_path))
     monkeypatch.setattr(settings, "REPORT_SERVICE_BASE_URL", "http://report-service.mock")
@@ -248,7 +248,7 @@ def test_lawyer_can_download_historical_report_by_name(client, seeded_data, monk
 
 def test_canonical_report_endpoint_redirects_to_signed_cos_url(client, seeded_data, monkeypatch):
     from app.core.config import settings
-    from app.services.report import ReportService
+    from app.integrations.report.service import ReportService
     from tests.test_storage_backends import FakeCOSClient, _configure_cos_settings
 
     fake_client = FakeCOSClient()

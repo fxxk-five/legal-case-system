@@ -51,3 +51,4 @@ class ClientUpdate(BaseModel):
     @classmethod
     def _validate_phone(cls, value: str) -> str:
         return validate_phone(value)
+

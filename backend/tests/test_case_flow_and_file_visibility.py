@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from uuid import uuid4
 
-from app.models.ai_task import AITask
-from app.models.case import Case
-from app.models.case_flow import CaseFlow
-from app.models.file import File
+from app.modules.ai.models.ai_task import AITask
+from app.modules.cases.models.case import Case
+from app.modules.cases.models.case_flow import CaseFlow
+from app.modules.files.models.file import File
 
 
 def _auth_header(token: str) -> dict[str, str]:
@@ -49,7 +49,7 @@ class FakeCOSClient:
         return storage_key in self.objects
 
     def list_objects(self, *, prefix: str):
-        from app.services.storage import StorageObjectInfo
+        from app.integrations.storage.service import StorageObjectInfo
 
         keys = sorted(key for key in self.objects if key.startswith(prefix))
         return [StorageObjectInfo(storage_key=key) for key in keys]
@@ -68,7 +68,7 @@ class FakeCOSClient:
 
 def _configure_cos_settings(monkeypatch, fake_client: FakeCOSClient, *, direct_upload_enabled: bool = False) -> None:
     from app.core.config import settings
-    from app.services import storage as storage_module
+    from app.integrations.storage import service as storage_module
 
     monkeypatch.setattr(settings, "STORAGE_BACKEND", "cos")
     monkeypatch.setattr(settings, "STORAGE_DIRECT_UPLOAD_ENABLED", direct_upload_enabled)
@@ -155,7 +155,7 @@ def test_upload_file_writes_flow_event(client, db_session, seeded_data, monkeypa
     response = client.post(
         "/api/v1/files/upload",
         params={"case_id": seeded_data["case"].id},
-        headers=_mini_headers(seeded_data["lawyer_token"]),
+        headers=_mini_headers(seeded_data["lawyer_mini_token"]),
         files={"upload": ("flow.pdf", b"%PDF-1.4\n", "application/pdf")},
     )
 
@@ -210,7 +210,7 @@ def test_client_can_delete_own_uploaded_file_and_write_flow(client, db_session, 
     upload_resp = client.post(
         "/api/v1/files/upload",
         params={"case_id": seeded_data["case"].id},
-        headers=_mini_headers(seeded_data["client_token"]),
+        headers=_mini_headers(seeded_data["client_mini_token"]),
         files={"upload": ("own-evidence.pdf", b"%PDF-1.4\n", "application/pdf")},
     )
     assert upload_resp.status_code == 201
@@ -258,7 +258,7 @@ def test_client_upload_triggers_auto_reanalysis_and_marks_case_pending(
     response = client.post(
         "/api/v1/files/upload",
         params={"case_id": seeded_data["case"].id},
-        headers=_mini_headers(seeded_data["client_token"]),
+        headers=_mini_headers(seeded_data["client_mini_token"]),
         files={"upload": ("supplement-1.pdf", b"%PDF-1.4\n", "application/pdf")},
     )
     assert response.status_code == 201
@@ -303,7 +303,7 @@ def test_client_direct_upload_completion_triggers_auto_reanalysis(
     policy_response = client.get(
         "/api/v1/files/upload-policy",
         params={"case_id": seeded_data["case"].id, "file_name": "supplement-direct.pdf"},
-        headers=_mini_headers(seeded_data["client_token"]),
+        headers=_mini_headers(seeded_data["client_mini_token"]),
     )
     assert policy_response.status_code == 200
     policy = policy_response.json()
@@ -315,7 +315,7 @@ def test_client_direct_upload_completion_triggers_auto_reanalysis(
     complete_response = client.post(
         policy["completion_url"],
         json={"completion_token": policy["completion_token"]},
-        headers=_mini_headers(seeded_data["client_token"]),
+        headers=_mini_headers(seeded_data["client_mini_token"]),
     )
     assert complete_response.status_code == 200
 
@@ -358,7 +358,7 @@ def test_client_upload_within_debounce_window_reuses_single_analyze_task(
     first = client.post(
         "/api/v1/files/upload",
         params={"case_id": seeded_data["case"].id},
-        headers=_mini_headers(seeded_data["client_token"]),
+        headers=_mini_headers(seeded_data["client_mini_token"]),
         files={"upload": ("debounce-1.pdf", b"%PDF-1.4\n", "application/pdf")},
     )
     assert first.status_code == 201
@@ -366,7 +366,7 @@ def test_client_upload_within_debounce_window_reuses_single_analyze_task(
     second = client.post(
         "/api/v1/files/upload",
         params={"case_id": seeded_data["case"].id},
-        headers=_mini_headers(seeded_data["client_token"]),
+        headers=_mini_headers(seeded_data["client_mini_token"]),
         files={"upload": ("debounce-2.pdf", b"%PDF-1.4\n", "application/pdf")},
     )
     assert second.status_code == 201

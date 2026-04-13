@@ -4,14 +4,18 @@ import time
 from uuid import uuid4
 
 from app.core.security import get_password_hash
-from app.models.ai_task import AITask
-from app.models.case import Case
-from app.models.file import File
+from app.modules.ai.models.ai_task import AITask
+from app.modules.cases.models.case import Case
+from app.modules.files.models.file import File
 from app.models.user import User
+from app.modules.auth.service import issue_session_bound_access_token
 
 
-def auth_header(token: str) -> dict[str, str]:
-    return {"Authorization": f"Bearer {token}"}
+def auth_header(token: str, extra_headers: dict[str, str] | None = None) -> dict[str, str]:
+    headers = {"Authorization": f"Bearer {token}"}
+    if extra_headers:
+        headers.update(extra_headers)
+    return headers
 
 
 def _wait_task_terminal_status(client, token: str, task_id: str, timeout_seconds: float = 20.0) -> dict:
@@ -36,7 +40,7 @@ def test_ai_full_chain_with_case_binding(client, seeded_data):
     parse_resp = client.post(
         f"/api/v1/ai/cases/{case_id}/parse-document",
         json={"file_id": file_id, "parse_options": {"extract_parties": True}},
-        headers=headers,
+        headers=auth_header(seeded_data["lawyer_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert parse_resp.status_code == 202
     parse_data = parse_resp.json()
@@ -55,7 +59,7 @@ def test_ai_full_chain_with_case_binding(client, seeded_data):
     analyze_resp = client.post(
         f"/api/v1/ai/cases/{case_id}/analyze",
         json={"analysis_types": ["legal_analysis", "strategy"]},
-        headers=headers,
+        headers=auth_header(seeded_data["lawyer_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert analyze_resp.status_code == 202
     analyze_task_id = analyze_resp.json()["task_id"]
@@ -71,7 +75,7 @@ def test_ai_full_chain_with_case_binding(client, seeded_data):
     falsify_resp = client.post(
         f"/api/v1/ai/cases/{case_id}/falsification",
         json={"analysis_id": analysis_id, "challenge_modes": ["logic", "evidence"], "iteration_count": 2},
-        headers=headers,
+        headers=auth_header(seeded_data["lawyer_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert falsify_resp.status_code == 202
     falsify_task_status = _wait_task_terminal_status(
@@ -108,7 +112,7 @@ def test_ai_permissions_for_client_role(client, seeded_data):
     analyze_resp = client.post(
         f"/api/v1/ai/cases/{case_id}/analyze",
         json={"analysis_types": ["legal_analysis"]},
-        headers=lawyer_headers,
+        headers=auth_header(seeded_data["lawyer_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert analyze_resp.status_code == 202
     _wait_task_terminal_status(client, seeded_data["lawyer_token"], analyze_resp.json()["task_id"])
@@ -116,7 +120,7 @@ def test_ai_permissions_for_client_role(client, seeded_data):
     parse_resp = client.post(
         f"/api/v1/ai/cases/{case_id}/parse-document",
         json={"file_id": file_id},
-        headers=client_headers,
+        headers=auth_header(seeded_data["client_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert parse_resp.status_code == 403
     parse_error = parse_resp.json()
@@ -145,7 +149,7 @@ def test_ai_error_branches_and_case_visibility(client, seeded_data):
     bad_file_resp = client.post(
         f"/api/v1/ai/cases/{case_id}/parse-document",
         json={"file_id": 999999},
-        headers=lawyer_headers,
+        headers=auth_header(seeded_data["lawyer_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert bad_file_resp.status_code == 404
     assert bad_file_resp.json()["code"] == "FILE_NOT_FOUND"
@@ -214,7 +218,7 @@ def test_personal_lawyer_cannot_access_hidden_case_ai_endpoints(client, db_sessi
     analyze_resp = client.post(
         f"/api/v1/ai/cases/{hidden_case.id}/analyze",
         json={"analysis_types": ["legal_analysis"]},
-        headers=auth_header(seeded_data["lawyer_token"]),
+        headers=auth_header(seeded_data["lawyer_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert analyze_resp.status_code == 404
     assert analyze_resp.json()["code"] == "CASE_NOT_FOUND"
@@ -222,6 +226,121 @@ def test_personal_lawyer_cannot_access_hidden_case_ai_endpoints(client, db_sessi
     tasks_resp = client.get("/api/v1/ai/tasks", headers=auth_header(seeded_data["lawyer_token"]))
     assert tasks_resp.status_code == 200
     task_ids = [item["task_id"] for item in tasks_resp.json()["items"]]
+    assert hidden_task.task_id not in task_ids
+
+
+def test_role_alias_lawyer_can_start_ai_analysis(client, db_session, seeded_data):
+    alias_lawyer = User(
+        tenant_id=seeded_data["tenant"].id,
+        role="org_lawyer",
+        is_tenant_admin=False,
+        phone="13800000996",
+        password_hash=get_password_hash("pwd123456"),
+        real_name="Alias AI Lawyer",
+        status=1,
+    )
+    db_session.add(alias_lawyer)
+    db_session.commit()
+
+    alias_token = issue_session_bound_access_token(db_session, user=alias_lawyer, channel="test_ai")
+
+    response = client.post(
+        f"/api/v1/ai/cases/{seeded_data['case'].id}/analyze",
+        json={"analysis_types": ["legal_analysis"]},
+        headers=auth_header(alias_token, {"Idempotency-Key": str(uuid4())}),
+    )
+    assert response.status_code == 202
+    assert response.json()["task_id"]
+
+
+def test_personal_role_alias_lawyer_task_list_respects_visible_cases(client, db_session, seeded_data):
+    tenant = seeded_data["tenant"]
+    tenant.type = "personal"
+    db_session.add(tenant)
+
+    alias_lawyer = User(
+        tenant_id=tenant.id,
+        role="solo_lawyer",
+        is_tenant_admin=False,
+        phone="13800000995",
+        password_hash=get_password_hash("pwd123456"),
+        real_name="Solo Alias Lawyer",
+        status=1,
+    )
+    hidden_lawyer = User(
+        tenant_id=tenant.id,
+        role="lawyer",
+        is_tenant_admin=False,
+        phone="13800000994",
+        password_hash=get_password_hash("pwd123456"),
+        real_name="Hidden Lawyer",
+        status=1,
+    )
+    db_session.add_all([alias_lawyer, hidden_lawyer])
+    db_session.flush()
+
+    visible_file = File(
+        tenant_id=tenant.id,
+        case_id=seeded_data["case"].id,
+        uploader_id=alias_lawyer.id,
+        uploader_role="lawyer",
+        file_name="visible-alias.pdf",
+        file_url="storage/tenant_demo/visible-alias.pdf",
+        file_type="application/pdf",
+    )
+    visible_task = AITask(
+        task_id=str(uuid4()),
+        tenant_id=tenant.id,
+        case_id=seeded_data["case"].id,
+        task_type="analyze",
+        status="queued",
+        progress=0,
+        message="queued",
+        input_params={"analysis_types": ["legal_analysis"]},
+        created_by=alias_lawyer.id,
+    )
+
+    hidden_case = Case(
+        tenant_id=tenant.id,
+        case_number="CASE-AI-HIDDEN-ALIAS-001",
+        title="Hidden Alias Case",
+        legal_type="other",
+        client_id=seeded_data["case"].client_id,
+        assigned_lawyer_id=hidden_lawyer.id,
+        status="new",
+    )
+    db_session.add(hidden_case)
+    db_session.flush()
+
+    hidden_file = File(
+        tenant_id=tenant.id,
+        case_id=hidden_case.id,
+        uploader_id=hidden_lawyer.id,
+        uploader_role="lawyer",
+        file_name="hidden-alias.pdf",
+        file_url="storage/tenant_demo/hidden-alias.pdf",
+        file_type="application/pdf",
+    )
+    hidden_task = AITask(
+        task_id=str(uuid4()),
+        tenant_id=tenant.id,
+        case_id=hidden_case.id,
+        task_type="analyze",
+        status="queued",
+        progress=0,
+        message="queued",
+        input_params={"analysis_types": ["legal_analysis"]},
+        created_by=hidden_lawyer.id,
+    )
+    db_session.add_all([visible_file, visible_task, hidden_file, hidden_task])
+    db_session.commit()
+
+    alias_token = issue_session_bound_access_token(db_session, user=alias_lawyer, channel="test_ai")
+    response = client.get("/api/v1/ai/tasks", headers=auth_header(alias_token))
+    assert response.status_code == 200
+
+    task_ids = [item["task_id"] for item in response.json()["items"]]
+    assert visible_task.task_id in task_ids
     assert hidden_task.task_id not in task_ids
 
 
@@ -312,7 +431,7 @@ def test_ai_task_is_queryable_immediately_after_creation(client, seeded_data):
     analyze_resp = client.post(
         f"/api/v1/ai/cases/{case_id}/analyze",
         json={"analysis_types": ["legal_analysis"]},
-        headers=headers,
+        headers=auth_header(seeded_data["lawyer_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert analyze_resp.status_code == 202
     task_id = analyze_resp.json()["task_id"]
@@ -361,7 +480,7 @@ def test_ai_task_list_endpoint_returns_items(client, seeded_data):
     analyze_resp = client.post(
         f"/api/v1/ai/cases/{case_id}/analyze",
         json={"analysis_types": ["legal_analysis"]},
-        headers=headers,
+        headers=auth_header(seeded_data["lawyer_token"], {"Idempotency-Key": str(uuid4())}),
     )
     assert analyze_resp.status_code == 202
 

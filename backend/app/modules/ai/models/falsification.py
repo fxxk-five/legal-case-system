@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class FalsificationRecord(Base, TimestampMixin):
@@ -24,4 +24,5 @@ class FalsificationRecord(Base, TimestampMixin):
 
     case = relationship("Case")
     analysis = relationship("AIAnalysisResult")
+
 
