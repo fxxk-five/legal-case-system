@@ -17,13 +17,13 @@ def normalize_phone(phone: str) -> str:
 def validate_phone(phone: str) -> str:
     normalized = normalize_phone(phone)
     if not PHONE_REGEX.fullmatch(normalized):
-        raise ValueError("Phone number must be an 11-digit mainland China mobile number.")
+        raise ValueError("手机号格式不正确，应为 11 位中国大陆手机号。")
     return normalized
 
 
 def validate_password(password: str) -> str:
     if not PASSWORD_REGEX.fullmatch(password):
-        raise ValueError("Password must be 10-128 chars with upper, lower, and digit, without spaces.")
+        raise ValueError("密码必须为 10-128 位，且同时包含大写字母、小写字母和数字，不能包含空格。")
     return password
 
 
@@ -36,14 +36,14 @@ def validate_existing_password(password: str) -> str:
 def validate_tenant_code(tenant_code: str) -> str:
     normalized = tenant_code.strip().lower()
     if not TENANT_CODE_REGEX.fullmatch(normalized):
-        raise ValueError("tenant_code may only contain lowercase letters, numbers, _ or -, length 3-50.")
+        raise ValueError("tenant_code 仅允许小写字母、数字、下划线、中划线，长度 3-50。")
     return normalized
 
 
 def validate_sms_code(code: str) -> str:
     normalized = code.strip()
     if not SMS_CODE_REGEX.fullmatch(normalized):
-        raise ValueError("SMS code must be 6 digits.")
+        raise ValueError("验证码必须为 6 位数字。")
     return normalized
 
 

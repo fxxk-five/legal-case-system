@@ -1,16 +1,16 @@
 from fastapi import APIRouter
 
-from app.api.routes_auth import router as auth_router
-from app.api.routes_tenants import router as tenants_router
-from app.api.routes_users import router as users_router
 from app.modules.ai.router import router as ai_router
 from app.modules.analytics.router import router as analytics_router
 from app.modules.analytics.stats_router import router as stats_router
 from app.modules.asr.router import router as asr_router
 from app.modules.notifications.router import router as notifications_router
+from app.modules.auth.router import router as auth_router
 from app.modules.cases.router import router as cases_router
 from app.modules.clients.router import router as clients_router
 from app.modules.files.router import router as files_router
+from app.modules.tenants.router import router as tenants_router
+from app.modules.users.router import router as users_router
 
 
 api_router = APIRouter()

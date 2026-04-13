@@ -1,22 +1,13 @@
-from datetime import datetime
-
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.validators import validate_password, validate_phone
 
 
-class InviteCreateResponse(BaseModel):
-    token: str
-    register_path: str
-    expires_at: datetime
-
-
-class InviteRegister(BaseModel):
-    token: str
+class LawyerCreate(BaseModel):
     phone: str = Field(min_length=11, max_length=20)
     password: str = Field(min_length=10, max_length=128)
     real_name: str = Field(min_length=1, max_length=100)
-    phone_verification_token: str | None = Field(default=None, min_length=16, max_length=255)
+    role: str = Field(default="lawyer", pattern="^(lawyer|org_lawyer|solo_lawyer|tenant_admin)$")
 
     @field_validator("phone")
     @classmethod
@@ -29,16 +20,22 @@ class InviteRegister(BaseModel):
         return validate_password(value)
 
 
-class InviteRead(BaseModel):
+class UserSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     tenant_id: int
-    invited_by_user_id: int
+    phone: str
+    real_name: str
     role: str
-    token: str
-    expires_at: datetime
-    status: str
-    max_uses: int
-    used_count: int
+    is_tenant_admin: bool
+    status: int
+
+
+class PendingUserSummary(UserSummary):
+    pass
+
+
+class UserStatusUpdate(BaseModel):
+    status: int = Field(ge=0, le=3)
 

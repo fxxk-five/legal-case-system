@@ -85,8 +85,7 @@ def _resolve_current_user(
 
     session_id = token_data.sid
     if session_id is None:
-        if settings.IS_PRODUCTION:
-            raise _auth_required("Session-bound access token is required.")
+        raise _auth_required("Session-bound access token is required.")
     else:
         auth_session = repository.get_auth_session(
             session_id=int(session_id),

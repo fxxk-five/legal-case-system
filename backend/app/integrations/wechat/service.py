@@ -4,18 +4,21 @@ import hashlib
 import json
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 from typing import Any
 from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 from fastapi import status
-from jose import JWTError, jwt
 
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
-from app.core.security import create_access_token
-from app.schemas.validators import PHONE_REGEX
+from app.core.validators import PHONE_REGEX
+from app.integrations.wechat.token_service import (
+    create_case_invite_token_payload,
+    create_wechat_login_ticket_payload,
+    decode_case_invite_token_payload,
+    decode_wechat_login_ticket_payload,
+)
 
 
 WECHAT_LOGIN_TICKET_SCENE = "wx_mini_login_ticket"
@@ -53,6 +56,7 @@ def _mock_phone_from_code(code: str) -> str:
     normalized = (code or "").strip()
     if PHONE_REGEX.fullmatch(normalized):
         return normalized
+
     for separator in (":", "|", ",", "_", "-"):
         parts = [part.strip() for part in normalized.split(separator)]
         for part in parts:
@@ -69,7 +73,7 @@ def _load_json_response(request: Request) -> dict[str, Any]:
         with urlopen(request, timeout=10) as response:
             return json.loads(response.read().decode("utf-8"))
     except Exception as exc:  # pragma: no cover
-        raise _wechat_api_error("调用微信接口失败。", status_code=status.HTTP_502_BAD_GATEWAY) from exc
+        raise _wechat_api_error("Failed to call WeChat API.", status_code=status.HTTP_502_BAD_GATEWAY) from exc
 
 
 def _load_binary_response(request: Request) -> tuple[bytes, str]:
@@ -78,7 +82,7 @@ def _load_binary_response(request: Request) -> tuple[bytes, str]:
             content_type = response.headers.get("Content-Type") or "application/octet-stream"
             return response.read(), content_type
     except Exception as exc:  # pragma: no cover
-        raise _wechat_api_error("调用微信接口失败。", status_code=status.HTTP_502_BAD_GATEWAY) from exc
+        raise _wechat_api_error("Failed to call WeChat API.", status_code=status.HTTP_502_BAD_GATEWAY) from exc
 
 
 def _require_wechat_app_credentials() -> None:
@@ -86,7 +90,7 @@ def _require_wechat_app_credentials() -> None:
         return
     if settings.WECHAT_MINIAPP_APP_ID and settings.WECHAT_MINIAPP_APP_SECRET:
         return
-    raise _wechat_api_error("未配置微信小程序 AppID 或 AppSecret。")
+    raise _wechat_api_error("WeChat Mini Program AppID/AppSecret is not configured.")
 
 
 def _get_wechat_access_token() -> str:
@@ -112,7 +116,7 @@ def _get_wechat_access_token() -> str:
     access_token = str(payload.get("access_token") or "")
     expires_in = int(payload.get("expires_in") or 7200)
     if not access_token:
-        message = str(payload.get("errmsg") or "获取微信 access_token 失败。")
+        message = str(payload.get("errmsg") or "Failed to get WeChat access_token.")
         raise _wechat_api_error(message)
 
     _WECHAT_ACCESS_TOKEN_CACHE["value"] = access_token
@@ -138,7 +142,7 @@ def exchange_code_for_identity(code: str) -> WechatMiniIdentity:
 
     openid = payload.get("openid")
     if not openid:
-        message = str(payload.get("errmsg") or "微信登录失败。")
+        message = str(payload.get("errmsg") or "WeChat login failed.")
         raise _wechat_api_error(message)
 
     unionid = payload.get("unionid")
@@ -162,7 +166,7 @@ def exchange_phone_code_for_phone_number(phone_code: str) -> str:
     phone_info = body.get("phone_info") or {}
     phone_number = phone_info.get("purePhoneNumber") or phone_info.get("phoneNumber")
     if not phone_number:
-        message = str(body.get("errmsg") or "获取微信手机号失败。")
+        message = str(body.get("errmsg") or "Failed to get WeChat phone number.")
         raise _wechat_api_error(message)
     return str(phone_number)
 
@@ -207,92 +211,46 @@ def generate_mini_program_code(*, page: str, scene: str) -> tuple[bytes, str]:
 
     if content_type.startswith("application/json"):
         body = json.loads(content.decode("utf-8"))
-        message = str(body.get("errmsg") or "生成微信小程序码失败。")
+        message = str(body.get("errmsg") or "Failed to generate WeChat mini-program code.")
         raise _wechat_api_error(message)
 
     return content, content_type
 
 
 def create_wechat_login_ticket(identity: WechatMiniIdentity) -> str:
-    now = datetime.now(timezone.utc)
-    payload: dict[str, Any] = {
-        "sub": f"wx-mini:{identity.openid}",
-        "scene": WECHAT_LOGIN_TICKET_SCENE,
-        "openid": identity.openid,
-        "exp": now + timedelta(minutes=WECHAT_LOGIN_TICKET_EXPIRE_MINUTES),
-        "iat": now,
-    }
-    if identity.unionid:
-        payload["unionid"] = identity.unionid
-    return jwt.encode(payload, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
+    return create_wechat_login_ticket_payload(
+        openid=identity.openid,
+        unionid=identity.unionid,
+        scene=WECHAT_LOGIN_TICKET_SCENE,
+        expire_minutes=WECHAT_LOGIN_TICKET_EXPIRE_MINUTES,
+    )
 
 
 def decode_wechat_login_ticket(ticket: str) -> WechatMiniIdentity:
-    try:
-        payload = jwt.decode(ticket, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError as exc:
-        raise AppError(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            code=ErrorCode.AUTH_REQUIRED,
-            message="微信登录态已失效，请重新发起登录。",
-            detail="微信登录态已失效，请重新发起登录。",
-        ) from exc
-
-    if payload.get("scene") != WECHAT_LOGIN_TICKET_SCENE:
-        raise AppError(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            code=ErrorCode.AUTH_REQUIRED,
-            message="微信登录态已失效，请重新发起登录。",
-            detail="微信登录态已失效，请重新发起登录。",
-        )
+    payload = decode_wechat_login_ticket_payload(
+        ticket=ticket,
+        scene=WECHAT_LOGIN_TICKET_SCENE,
+    )
 
     openid = payload.get("openid")
     if not isinstance(openid, str) or not openid.strip():
         raise AppError(
             status_code=status.HTTP_400_BAD_REQUEST,
             code=ErrorCode.AUTH_REQUIRED,
-            message="微信登录态已失效，请重新发起登录。",
-            detail="微信登录态已失效，请重新发起登录。",
+            message="WeChat login ticket is invalid or expired.",
+            detail="WeChat login ticket is invalid or expired.",
         )
 
     unionid = payload.get("unionid")
-    return WechatMiniIdentity(openid=openid.strip(), unionid=unionid.strip() if isinstance(unionid, str) and unionid.strip() else None)
-
-
-def create_case_invite_token(case_id: int, tenant_id: int) -> str:
-    return create_access_token(
-        subject=f"case-invite:{case_id}",
-        expires_delta=timedelta(days=7),
-        extra_data={"case_id": case_id, "tenant_id": tenant_id, "scene": "client_case_entry"},
+    return WechatMiniIdentity(
+        openid=openid.strip(),
+        unionid=unionid.strip() if isinstance(unionid, str) and unionid.strip() else None,
     )
 
 
+def create_case_invite_token(case_id: int, tenant_id: int) -> str:
+    return create_case_invite_token_payload(case_id=case_id, tenant_id=tenant_id)
+
+
 def decode_case_invite_token(token: str) -> dict[str, Any]:
-    try:
-        payload = jwt.decode(token, settings.SECRET_KEY, algorithms=[settings.ALGORITHM])
-    except JWTError as exc:
-        raise AppError(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            code=ErrorCode.INVITE_INVALID,
-            message="案件邀请令牌无效或已过期。",
-            detail="案件邀请令牌无效或已过期。",
-        ) from exc
-
-    if payload.get("scene") != "client_case_entry":
-        raise AppError(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            code=ErrorCode.INVITE_INVALID,
-            message="案件邀请令牌无效或已过期。",
-            detail="案件邀请令牌无效或已过期。",
-        )
-
-    case_id = payload.get("case_id")
-    tenant_id = payload.get("tenant_id")
-    if not isinstance(case_id, int) or not isinstance(tenant_id, int):
-        raise AppError(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            code=ErrorCode.INVITE_INVALID,
-            message="案件邀请令牌无效或已过期。",
-            detail="案件邀请令牌无效或已过期。",
-        )
-    return payload
+    return decode_case_invite_token_payload(token=token)

@@ -1,1 +1,3 @@
-"""External integrations package."""
+"""Infrastructure integrations package boundary."""
+
+__all__: list[str] = []

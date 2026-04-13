@@ -1,51 +1,55 @@
 from __future__ import annotations
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from fastapi import status
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError, ErrorCode
+from app.integrations.sms.guard_service import (
+    SMS_SEND_DEVICE_MAX_COUNT,
+    SMS_SEND_DEVICE_WINDOW_SECONDS,
+    SMS_SEND_INTERVAL_SECONDS,
+    SMS_SEND_IP_MAX_COUNT,
+    SMS_SEND_IP_WINDOW_SECONDS,
+    SMS_VERIFY_DEVICE_MAX_COUNT,
+    SMS_VERIFY_DEVICE_WINDOW_SECONDS,
+    SMS_VERIFY_IP_MAX_COUNT,
+    SMS_VERIFY_IP_WINDOW_SECONDS,
+    SMS_VERIFY_LOCK_SECONDS,
+    SMS_VERIFY_MAX_FAIL_COUNT,
+    SmsRequestContext,
+    as_utc,
+    build_rate_limit_error,
+    build_verify_locked_error,
+    enforce_request_rate_limits,
+    record_sms_audit,
+    utc_now,
+)
 from app.models.sms_code import SmsCode
 
 SMS_EXPIRE_SECONDS = 300
 SMS_VERIFY_TOKEN_EXPIRE_SECONDS = 600
-SMS_SEND_INTERVAL_SECONDS = 60
-SMS_VERIFY_MAX_FAIL_COUNT = 5
-SMS_VERIFY_LOCK_SECONDS = 300
 
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _as_utc(dt: datetime) -> datetime:
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
-
-
-def _build_rate_limit_error(*, retry_after: int) -> AppError:
-    return AppError(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        code=ErrorCode.SMS_CODE_RATE_LIMITED,
-        message=f"验证码发送过于频繁，请 {retry_after} 秒后重试。",
-        detail=f"验证码发送过于频繁，请 {retry_after} 秒后重试。",
+def send_sms_code(
+    db: Session,
+    *,
+    phone: str,
+    purpose: str,
+    context: SmsRequestContext | None = None,
+) -> SmsCode:
+    now = utc_now()
+    enforce_request_rate_limits(
+        db,
+        phone=phone,
+        purpose=purpose,
+        action="send",
+        context=context,
+        now=now,
     )
 
-
-def _build_verify_locked_error(*, retry_after: int) -> AppError:
-    return AppError(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        code=ErrorCode.SMS_CODE_RATE_LIMITED,
-        message=f"验证码校验次数过多，请 {retry_after} 秒后重试。",
-        detail=f"验证码校验次数过多，请 {retry_after} 秒后重试。",
-    )
-
-
-def send_sms_code(db: Session, *, phone: str, purpose: str) -> SmsCode:
-    now = _utc_now()
     latest = (
         db.query(SmsCode)
         .filter(SmsCode.phone == phone, SmsCode.purpose == purpose)
@@ -53,10 +57,19 @@ def send_sms_code(db: Session, *, phone: str, purpose: str) -> SmsCode:
         .first()
     )
     if latest is not None:
-        latest_created_at = _as_utc(latest.created_at)
+        latest_created_at = as_utc(latest.created_at)
         if latest_created_at >= now - timedelta(seconds=SMS_SEND_INTERVAL_SECONDS):
             retry_after = int((latest_created_at + timedelta(seconds=SMS_SEND_INTERVAL_SECONDS) - now).total_seconds())
-            raise _build_rate_limit_error(retry_after=max(1, retry_after))
+            record_sms_audit(
+                db,
+                phone=phone,
+                purpose=purpose,
+                action="send",
+                result="phone_interval_limited",
+                context=context,
+            )
+            db.commit()
+            raise build_rate_limit_error(retry_after=max(1, retry_after))
 
     sms = SmsCode(
         phone=phone,
@@ -71,13 +84,37 @@ def send_sms_code(db: Session, *, phone: str, purpose: str) -> SmsCode:
         verification_consumed_at=None,
     )
     db.add(sms)
+    record_sms_audit(
+        db,
+        phone=phone,
+        purpose=purpose,
+        action="send",
+        result="sent",
+        context=context,
+    )
     db.commit()
     db.refresh(sms)
     return sms
 
 
-def verify_sms_code(db: Session, *, phone: str, code: str, purpose: str) -> str:
-    now = _utc_now()
+def verify_sms_code(
+    db: Session,
+    *,
+    phone: str,
+    code: str,
+    purpose: str,
+    context: SmsRequestContext | None = None,
+) -> str:
+    now = utc_now()
+    enforce_request_rate_limits(
+        db,
+        phone=phone,
+        purpose=purpose,
+        action="verify",
+        context=context,
+        now=now,
+    )
+
     sms = (
         db.query(SmsCode)
         .filter(SmsCode.phone == phone, SmsCode.purpose == purpose)
@@ -85,6 +122,16 @@ def verify_sms_code(db: Session, *, phone: str, code: str, purpose: str) -> str:
         .first()
     )
     if sms is None or sms.consumed_at is not None:
+        record_sms_audit(
+            db,
+            phone=phone,
+            purpose=purpose,
+            action="verify",
+            result="invalid_code",
+            context=context,
+            detail="missing_or_consumed",
+        )
+        db.commit()
         raise AppError(
             status_code=status.HTTP_400_BAD_REQUEST,
             code=ErrorCode.SMS_CODE_INVALID,
@@ -92,8 +139,17 @@ def verify_sms_code(db: Session, *, phone: str, code: str, purpose: str) -> str:
             detail="验证码错误或已使用。",
         )
 
-    expires_at = _as_utc(sms.expires_at)
+    expires_at = as_utc(sms.expires_at)
     if expires_at < now:
+        record_sms_audit(
+            db,
+            phone=phone,
+            purpose=purpose,
+            action="verify",
+            result="expired_code",
+            context=context,
+        )
+        db.commit()
         raise AppError(
             status_code=status.HTTP_400_BAD_REQUEST,
             code=ErrorCode.SMS_CODE_EXPIRED,
@@ -101,21 +157,41 @@ def verify_sms_code(db: Session, *, phone: str, code: str, purpose: str) -> str:
             detail="验证码已过期，请重新获取。",
         )
 
-    locked_until = _as_utc(sms.verify_locked_until) if sms.verify_locked_until is not None else None
+    locked_until = as_utc(sms.verify_locked_until) if sms.verify_locked_until is not None else None
     if locked_until is not None and locked_until > now:
         retry_after = int((locked_until - now).total_seconds())
-        raise _build_verify_locked_error(retry_after=max(1, retry_after))
+        record_sms_audit(
+            db,
+            phone=phone,
+            purpose=purpose,
+            action="verify",
+            result="code_locked",
+            context=context,
+        )
+        db.commit()
+        raise build_verify_locked_error(retry_after=max(1, retry_after))
 
     if sms.code != code:
         sms.verify_fail_count = int(sms.verify_fail_count or 0) + 1
+        result = "invalid_code"
         if sms.verify_fail_count >= SMS_VERIFY_MAX_FAIL_COUNT:
             sms.verify_locked_until = now + timedelta(seconds=SMS_VERIFY_LOCK_SECONDS)
-            db.add(sms)
-            db.commit()
-            raise _build_verify_locked_error(retry_after=SMS_VERIFY_LOCK_SECONDS)
+            result = "code_locked"
 
         db.add(sms)
+        record_sms_audit(
+            db,
+            phone=phone,
+            purpose=purpose,
+            action="verify",
+            result=result,
+            context=context,
+        )
         db.commit()
+
+        if result == "code_locked":
+            raise build_verify_locked_error(retry_after=SMS_VERIFY_LOCK_SECONDS)
+
         raise AppError(
             status_code=status.HTTP_400_BAD_REQUEST,
             code=ErrorCode.SMS_CODE_INVALID,
@@ -130,13 +206,21 @@ def verify_sms_code(db: Session, *, phone: str, code: str, purpose: str) -> str:
     sms.verification_expires_at = now + timedelta(seconds=SMS_VERIFY_TOKEN_EXPIRE_SECONDS)
     sms.verification_consumed_at = None
     db.add(sms)
+    record_sms_audit(
+        db,
+        phone=phone,
+        purpose=purpose,
+        action="verify",
+        result="verified",
+        context=context,
+    )
     db.commit()
 
     return sms.verification_token
 
 
 def assert_phone_verified(db: Session, *, phone: str, purpose: str, verification_token: str) -> None:
-    now = _utc_now()
+    now = utc_now()
     sms = (
         db.query(SmsCode)
         .filter(
@@ -156,7 +240,7 @@ def assert_phone_verified(db: Session, *, phone: str, purpose: str, verification
             detail="手机号尚未完成验证码校验。",
         )
 
-    expires_at = _as_utc(sms.verification_expires_at) if sms.verification_expires_at is not None else None
+    expires_at = as_utc(sms.verification_expires_at) if sms.verification_expires_at is not None else None
     if expires_at is None or expires_at < now:
         raise AppError(
             status_code=status.HTTP_400_BAD_REQUEST,

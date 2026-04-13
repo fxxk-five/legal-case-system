@@ -1,4 +1,4 @@
-"""ORM model exports."""
+"""Central ORM model registry for SQLAlchemy metadata discovery."""
 
 from app.models.auth_session import AuthSession
 from app.models.sms_audit_log import SmsAuditLog
@@ -35,7 +35,7 @@ __all__ = [
     "AIAnalysisResult",
     "FalsificationRecord",
     "AITask",
+    "AuditLog",
     "AuthSession",
     "WebLoginTicket",
-    "AuditLog",
 ]

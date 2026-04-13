@@ -4,7 +4,7 @@ from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class SmsCode(Base, TimestampMixin):
@@ -24,3 +24,4 @@ class SmsCode(Base, TimestampMixin):
     verification_token: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
     verification_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     verification_consumed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+

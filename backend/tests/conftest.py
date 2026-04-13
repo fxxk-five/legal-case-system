@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import sys
 from pathlib import Path
@@ -13,15 +13,16 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from app.core.security import create_access_token, get_password_hash
+from app.core.security import get_password_hash
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models.case import Case
-from app.models.file import File
+from app.modules.cases.models.case import Case
+from app.modules.files.models.file import File
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.modules.auth.service import issue_session_bound_access_token
 
 
 @pytest.fixture(autouse=True)
@@ -182,14 +183,12 @@ def seeded_data(db_session):
     db_session.add(file_record)
     db_session.commit()
 
-    def make_token(user: User) -> str:
-        return create_access_token(
-            user.id,
-            extra_data={
-                "tenant_id": user.tenant_id,
-                "role": user.role,
-                "is_tenant_admin": user.is_tenant_admin,
-            },
+    def make_token(user: User, *, channel: str = "test_seeded", device_type: str | None = None) -> str:
+        return issue_session_bound_access_token(
+            db_session,
+            user=user,
+            channel=channel,
+            device_type=device_type,
         )
 
     return {
@@ -197,6 +196,8 @@ def seeded_data(db_session):
         "case": case,
         "file": file_record,
         "lawyer_token": make_token(lawyer),
+        "lawyer_mini_token": make_token(lawyer, channel="mini_password", device_type="mini-program"),
         "client_token": make_token(client_user),
+        "client_mini_token": make_token(client_user, channel="mini_password", device_type="mini-program"),
         "outsider_token": make_token(outsider_client),
     }
