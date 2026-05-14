@@ -3,7 +3,7 @@
     <view class="card page-hero">
       <text class="page-hero-title">新建案件</text>
       <text class="page-hero-desc">
-        案号支持手动输入；如果留空，系统会按租户、年份、法律类型和序号自动生成。
+        案号支持手动输入；如留空，系统会按租户、年份、法律类型和序号自动生成。
       </text>
     </view>
 
@@ -26,6 +26,19 @@
       <picker class="picker-wrap" mode="time" :value="form.deadlineTime" @change="onDeadlineTimeChange">
         <view class="picker-input">{{ form.deadlineTime || "截止时间（可选）" }}</view>
       </picker>
+
+      <textarea
+        v-model="form.uploadGuide"
+        class="input textarea-field"
+        maxlength="2000"
+        placeholder="给当事人的材料上传说明（可选）。例如：请优先上传合同原件、聊天记录、转账截图。"
+      />
+      <view class="char-count-row">
+        <text class="meta helper-gap">
+          这段说明会展示在当事人上传材料页面顶部，帮助对方知道先传什么。
+        </text>
+        <text class="char-count" :class="{ 'char-count-warn': uploadGuideLength > 1800 }">{{ uploadGuideLength }}/2000</text>
+      </view>
     </view>
 
     <view class="card">
@@ -46,11 +59,11 @@
 
 <script>
 import WorkspaceTabBar from "../../components/WorkspaceTabBar.vue";
-import { buildWorkspaceCaseDetailUrl, getWorkspaceModuleUrl } from "../../common/role-routing";
-import { LEGAL_TYPE_OPTIONS } from "../../common/display";
-import { post } from "../../common/http";
-import { friendlyError, showFormError, validateName, validatePhone, validateTitle } from "../../common/form";
-import { ensureWorkspaceAccess } from "../../common/workspace";
+import { buildWorkspaceCaseDetailUrl, getWorkspaceModuleUrl } from "../../features/auth/role-routing";
+import { LEGAL_TYPE_OPTIONS } from "../../shared/lib/display";
+import { post } from "../../shared/api/http";
+import { friendlyError, showFormError, validateName, validatePhone, validateTitle } from "../../shared/lib/form";
+import { ensureWorkspaceAccess } from "../../features/workspace/workspace";
 
 export default {
   components: {
@@ -69,6 +82,7 @@ export default {
         deadlineTime: "",
         clientPhone: "",
         clientRealName: "",
+        uploadGuide: "",
       },
     };
   },
@@ -76,6 +90,9 @@ export default {
     legalTypeLabel() {
       const current = this.legalTypeOptions[this.legalTypeIndex];
       return current ? current.label : "请选择法律类型";
+    },
+    uploadGuideLength() {
+      return String(this.form.uploadGuide || "").length;
     },
   },
   onLoad() {
@@ -108,9 +125,14 @@ export default {
         validateTitle(this.form.title, "案件名称", 255) ||
         validateName(this.form.clientRealName, "当事人姓名") ||
         validatePhone(this.form.clientPhone, "当事人手机号");
+      const uploadGuide = String(this.form.uploadGuide || "").trim();
 
       if (validationMessage) {
         showFormError(validationMessage);
+        return;
+      }
+      if (uploadGuide.length > 2000) {
+        showFormError("上传说明不能超过 2000 个字");
         return;
       }
 
@@ -120,6 +142,16 @@ export default {
           this.form.deadlineDate && this.form.deadlineTime
             ? `${this.form.deadlineDate}T${this.form.deadlineTime}:00`
             : null;
+
+        if (deadline) {
+          const deadlineTs = new Date(deadline).getTime();
+          if (!Number.isNaN(deadlineTs) && deadlineTs < Date.now()) {
+            showFormError("截止时间不能早于当前时间");
+            this.submitting = false;
+            return;
+          }
+        }
+
         const result = await post("/cases", {
           case_number: this.form.caseNumber.trim() || null,
           title: this.form.title.trim(),
@@ -127,12 +159,17 @@ export default {
           deadline,
           client_phone: this.form.clientPhone.trim(),
           client_real_name: this.form.clientRealName.trim(),
+          upload_guide: uploadGuide || null,
         });
 
-        uni.showToast({ title: "创建成功", icon: "success" });
-        setTimeout(() => {
-          uni.redirectTo({ url: buildWorkspaceCaseDetailUrl(result.id) });
-        }, 400);
+        const targetUrl = buildWorkspaceCaseDetailUrl(result.id);
+        uni.showToast({
+          title: "创建成功",
+          icon: "success",
+          complete: () => {
+            uni.redirectTo({ url: targetUrl });
+          },
+        });
       } catch (error) {
         showFormError(friendlyError(error, "创建案件失败"));
       } finally {
@@ -154,7 +191,33 @@ export default {
   margin-bottom: 18rpx;
 }
 
+.textarea-field {
+  min-height: 180rpx;
+  padding-top: 24rpx;
+  box-sizing: border-box;
+}
+
 .action-button {
   width: 100%;
 }
+
+.char-count-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8rpx;
+}
+
+.char-count {
+  flex-shrink: 0;
+  font-size: 22rpx;
+  color: #94a3b8;
+  margin-bottom: 18rpx;
+}
+
+.char-count-warn {
+  color: #f97316;
+}
 </style>
+
+

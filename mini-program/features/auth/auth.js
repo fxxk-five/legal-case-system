@@ -1,3 +1,5 @@
+// 小程序存储密钥常量
+// 注意：uni.setStorageSync 在小程序中是安全的，每个小程序有独立的存储空间
 const ACCESS_TOKEN_KEY = "access_token";
 const REFRESH_TOKEN_KEY = "refresh_token";
 const USER_INFO_KEY = "user_info";
@@ -56,6 +58,7 @@ export function clearWechatOpenid() {
 }
 
 export function clearSession() {
+  // 清除所有会话相关数据，确保登出彻底
   clearAccessToken();
   clearRefreshToken();
   clearUserInfo();

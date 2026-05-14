@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="page-container fade-in workspace-page">
     <view class="card page-hero">
       <text class="page-hero-title">分析管理</text>
@@ -143,10 +143,11 @@
 
 <script>
 import WorkspaceTabBar from "../../components/WorkspaceTabBar.vue";
-import { buildQuery, get, put, retryTask } from "../../common/http";
-import { friendlyError, showFormError } from "../../common/form";
-import { ensureWorkspaceAccess } from "../../common/workspace";
-import { formatDateTime } from "../../common/display";
+import { get, put } from "../../shared/api/http";
+import { aiTasksApi } from "../../shared/api/domain-api";
+import { friendlyError, showFormError } from "../../shared/lib/form";
+import { ensureWorkspaceAccess } from "../../features/workspace/workspace";
+import { formatDateTime } from "../../shared/lib/display";
 
 const TASK_STATUS_OPTIONS = [
   { label: "全部任务状态", value: "" },
@@ -173,7 +174,7 @@ function numberText(value) {
 }
 
 function costText(value) {
-  return `¥${Number(value || 0).toFixed(4)}`;
+  return `￥${Number(value || 0).toFixed(4)}`;
 }
 
 function taskTypeText(value) {
@@ -394,7 +395,7 @@ export default {
         status: this.taskStatusOptions[this.taskStatusIndex] ? this.taskStatusOptions[this.taskStatusIndex].value : "",
         task_type: this.taskTypeOptions[this.taskTypeIndex] ? this.taskTypeOptions[this.taskTypeIndex].value : "",
       };
-      const data = await get(`/ai/tasks${buildQuery(params)}`);
+      const data = await aiTasksApi.listTasks(params);
       this.taskTotal = Number(data.total || 0);
       this.taskItems = Array.isArray(data.items) ? data.items.map((item) => this.decorateTaskItem(item)) : [];
     },
@@ -429,7 +430,7 @@ export default {
       }
       this.retryingTaskId = item.task_id;
       try {
-        await retryTask(item.task_id, "manual retry from mini-program analytics console");
+        await aiTasksApi.retryTask(item.task_id, "manual retry from mini-program analytics console");
         uni.showToast({ title: "已重新入队", icon: "success" });
         await this.loadTasks();
         await this.loadUsage();
@@ -574,3 +575,5 @@ export default {
   line-height: 1.7;
 }
 </style>
+
+

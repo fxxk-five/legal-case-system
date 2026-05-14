@@ -61,8 +61,8 @@
 </template>
 
 <script>
-import { friendlyError, showFormError } from "../common/form";
-import { transcribeCaseRemarkAudio } from "../common/cases";
+import { friendlyError, showFormError } from "../shared/lib/form";
+import { transcribeCaseRemarkAudio } from "../features/cases/api";
 
 export default {
   name: "CaseRemarkInput",
@@ -289,7 +289,7 @@ export default {
           format: "mp3",
         });
       } catch (error) {
-        if (error?.message) {
+        if (error) {
           showFormError(friendlyError(error, "无法开始录音"));
         }
       }

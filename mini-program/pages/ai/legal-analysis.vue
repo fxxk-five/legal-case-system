@@ -55,24 +55,24 @@
         <view class="swot-grid">
           <view class="swot-item strength">
             <view class="swot-label">优势</view>
-            <view v-for="(item, index) in strengths" :key="`s-${index}`" class="swot-text">• {{ item }}</view>
-            <view v-if="!strengths.length" class="swot-empty">暂无优势结论</view>
+            <view v-for="item in strengthItems" :key="item.key" class="swot-text">• {{ item.text }}</view>
+            <view v-if="!strengthItems.length" class="swot-empty">暂无优势结论</view>
           </view>
           <view class="swot-item weakness">
             <view class="swot-label">风险</view>
-            <view v-for="(item, index) in weaknesses" :key="`w-${index}`" class="swot-text">• {{ item }}</view>
-            <view v-if="!weaknesses.length" class="swot-empty">暂无风险结论</view>
+            <view v-for="item in weaknessItems" :key="item.key" class="swot-text">• {{ item.text }}</view>
+            <view v-if="!weaknessItems.length" class="swot-empty">暂无风险结论</view>
           </view>
         </view>
       </view>
 
       <view class="glass-card advice-card">
         <view class="card-title">行动建议</view>
-        <view v-for="(item, index) in recommendations" :key="`r-${index}`" class="advice-item">
+        <view v-for="item in recommendationItems" :key="item.key" class="advice-item">
           <text class="advice-icon">•</text>
-          <text class="advice-text">{{ item }}</text>
+          <text class="advice-text">{{ item.text }}</text>
         </view>
-        <view v-if="!recommendations.length" class="swot-empty">暂无行动建议</view>
+        <view v-if="!recommendationItems.length" class="swot-empty">暂无行动建议</view>
       </view>
     </view>
 
@@ -82,11 +82,13 @@
 
 <script>
 import WorkspaceTabBar from "@/components/WorkspaceTabBar.vue";
-import { createAITaskTracker, getTaskStatusText, normalizeTask } from "@/common/aiTask.js";
-import { friendlyError, showFormError } from "@/common/form";
-import { getAnalysisResults, getTaskStatus, retryTask, startAnalysis } from "@/common/http.js";
-import { redirectByRole } from "@/common/session";
-import { ensureWorkspaceAccess } from "@/common/workspace";
+import { createAITaskTracker, getTaskStatusText, loadPageTaskFeedback, normalizeTask, savePageTaskFeedback } from "@/features/ai/aiTask.js";
+import { friendlyError, showFormError } from "@/shared/lib/form";
+import { getAnalysisResults, getTaskStatus, retryTask, startAnalysis } from "@/shared/api/http.js";
+import { redirectByRole, getCurrentUser } from "@/features/auth/session";
+import { ensureWorkspaceAccess } from "@/features/workspace/workspace";
+
+const TASK_TYPE = "analyze";
 
 export default {
   components: {
@@ -105,6 +107,13 @@ export default {
     };
   },
   computed: {
+    buildListItems() {
+      return (items, prefix) =>
+        (Array.isArray(items) ? items : []).map((item, index) => ({
+          key: `${prefix}-${index}`,
+          text: item,
+        }));
+    },
     statusText() {
       return getTaskStatusText(this.currentTask?.status);
     },
@@ -120,11 +129,20 @@ export default {
     strengths() {
       return Array.isArray(this.latestAnalysis?.strengths) ? this.latestAnalysis.strengths : [];
     },
+    strengthItems() {
+      return this.buildListItems(this.strengths, "s");
+    },
     weaknesses() {
       return Array.isArray(this.latestAnalysis?.weaknesses) ? this.latestAnalysis.weaknesses : [];
     },
+    weaknessItems() {
+      return this.buildListItems(this.weaknesses, "w");
+    },
     recommendations() {
       return Array.isArray(this.latestAnalysis?.recommendations) ? this.latestAnalysis.recommendations : [];
+    },
+    recommendationItems() {
+      return this.buildListItems(this.recommendations, "r");
     },
   },
   onLoad(options) {
@@ -137,12 +155,55 @@ export default {
     if (!this.caseId) {
       showFormError("缺少案件参数");
       redirectByRole(user);
+      return;
     }
+    this.restoreTaskFeedback();
+    this.loadAnalysis();
   },
   onUnload() {
     this.stopTracker();
   },
   methods: {
+    isTerminalTask(task) {
+      return ["completed", "failed", "dead"].includes(String(task?.status || "").toLowerCase());
+    },
+    saveTaskFeedback(task = this.currentTask) {
+      if (!this.caseId || !task) {
+        return;
+      }
+      savePageTaskFeedback({
+        caseId: this.caseId,
+        taskType: TASK_TYPE,
+        task,
+      });
+    },
+    async restoreTaskFeedback() {
+      if (!this.caseId) {
+        return;
+      }
+
+      const cachedTask = loadPageTaskFeedback({
+        caseId: this.caseId,
+        taskType: TASK_TYPE,
+      });
+      if (!cachedTask?.task_id) {
+        return;
+      }
+
+      let nextTask = normalizeTask(cachedTask);
+      try {
+        const latestTask = await getTaskStatus(nextTask.task_id);
+        if (latestTask?.task_id) {
+          nextTask = normalizeTask(latestTask);
+        }
+      } catch {}
+
+      this.currentTask = nextTask;
+      this.saveTaskFeedback(nextTask);
+      if (!this.isTerminalTask(nextTask)) {
+        this.startTracker(nextTask);
+      }
+    },
     async loadAnalysis() {
       try {
         const res = await getAnalysisResults(this.caseId);
@@ -159,7 +220,9 @@ export default {
 
       this.loading = true;
       try {
-        const task = await startAnalysis(this.caseId);
+        const user = getCurrentUser();
+        const idempotencyKey = `analysis-${user?.tenant_id || 0}-${this.caseId}-${Date.now()}`;
+        const task = await startAnalysis(this.caseId, {}, idempotencyKey);
         this.applyTask(task);
         uni.showToast({ title: "分析任务已启动", icon: "success" });
       } catch (error) {
@@ -190,6 +253,7 @@ export default {
     },
     applyTask(task) {
       this.currentTask = normalizeTask(task);
+      this.saveTaskFeedback(this.currentTask);
       this.startTracker(this.currentTask);
     },
     startTracker(task) {
@@ -199,14 +263,17 @@ export default {
         getTaskStatus,
         onUpdate: (nextTask, meta) => {
           this.currentTask = normalizeTask(nextTask);
+          this.saveTaskFeedback(this.currentTask);
           this.wsConnected = Boolean(meta && meta.connected);
         },
         onCompleted: async () => {
+          this.saveTaskFeedback(this.currentTask);
           uni.showToast({ title: "分析任务已完成", icon: "success" });
           await this.loadAnalysis();
         },
         onFailed: (failedTask) => {
           this.currentTask = normalizeTask(failedTask);
+          this.saveTaskFeedback(this.currentTask);
           showFormError(this.currentTask.message || "分析任务失败");
         },
         onError: (error) => {
@@ -430,3 +497,5 @@ export default {
   font-weight: 600;
 }
 </style>
+
+

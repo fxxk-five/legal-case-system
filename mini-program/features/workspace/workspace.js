@@ -1,6 +1,6 @@
-import { showFormError } from "./form";
-import { getCurrentUser, redirectByRole, requireLogin } from "./session";
-import { buildClientMenuState, buildWorkspaceMenuState, getWorkspaceAccessResult } from "./role-routing";
+import { showFormError } from "../../shared/lib/form";
+import { getCurrentUser, redirectByRole, requireLogin } from "../auth/session";
+import { buildClientMenuState, buildWorkspaceMenuState, getWorkspaceAccessResult } from "../auth/role-routing";
 
 export function buildWorkspaceMenu(user, currentKey = "") {
   return buildWorkspaceMenuState(user, currentKey);

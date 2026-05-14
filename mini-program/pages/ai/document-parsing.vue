@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="page-container fade-in">
     <view class="section-title">文档智能解析</view>
 
@@ -41,11 +41,13 @@
 
 <script>
 import WorkspaceTabBar from "@/components/WorkspaceTabBar.vue";
-import { getCaseFacts, getTaskStatus, parseDocument, retryTask } from "@/common/http.js";
-import { createAITaskTracker, getTaskStatusText, normalizeTask } from "@/common/aiTask.js";
-import { friendlyError, showFormError } from "@/common/form";
-import { redirectByRole } from "@/common/session";
-import { ensureWorkspaceAccess } from "@/common/workspace";
+import { getCaseFacts, getTaskStatus, parseDocument, retryTask } from "@/shared/api/http.js";
+import { createAITaskTracker, getTaskStatusText, loadPageTaskFeedback, normalizeTask, savePageTaskFeedback } from "@/features/ai/aiTask.js";
+import { friendlyError, showFormError } from "@/shared/lib/form";
+import { redirectByRole, getCurrentUser } from "@/features/auth/session";
+import { ensureWorkspaceAccess } from "@/features/workspace/workspace";
+
+const TASK_TYPE = "parse";
 
 export default {
   components: {
@@ -87,12 +89,53 @@ export default {
       redirectByRole(user);
       return;
     }
+    this.restoreTaskFeedback();
     this.loadFacts();
   },
   onUnload() {
     this.stopTracker();
   },
   methods: {
+    isTerminalTask(task) {
+      return ["completed", "failed", "dead"].includes(String(task?.status || "").toLowerCase());
+    },
+    saveTaskFeedback(task = this.currentTask) {
+      if (!this.caseId || !task) {
+        return;
+      }
+      savePageTaskFeedback({
+        caseId: this.caseId,
+        taskType: TASK_TYPE,
+        task,
+      });
+    },
+    async restoreTaskFeedback() {
+      if (!this.caseId) {
+        return;
+      }
+
+      const cachedTask = loadPageTaskFeedback({
+        caseId: this.caseId,
+        taskType: TASK_TYPE,
+      });
+      if (!cachedTask?.task_id) {
+        return;
+      }
+
+      let nextTask = normalizeTask(cachedTask);
+      try {
+        const latestTask = await getTaskStatus(nextTask.task_id);
+        if (latestTask?.task_id) {
+          nextTask = normalizeTask(latestTask);
+        }
+      } catch {}
+
+      this.currentTask = nextTask;
+      this.saveTaskFeedback(nextTask);
+      if (!this.isTerminalTask(nextTask)) {
+        this.startTracker(nextTask);
+      }
+    },
     async loadFacts() {
       try {
         const res = await getCaseFacts(this.caseId);
@@ -118,7 +161,9 @@ export default {
     async startParse(file) {
       uni.showLoading({ title: "上传并启动解析中..." });
       try {
-        const task = await parseDocument(this.caseId, file);
+        const user = getCurrentUser();
+        const idempotencyKey = `parse-${user?.tenant_id || 0}-${this.caseId}-${Date.now()}`;
+        const task = await parseDocument(this.caseId, file, {}, idempotencyKey);
         this.applyTask(task);
         uni.showToast({ title: "解析任务已启动", icon: "success" });
       } catch (error) {
@@ -145,6 +190,7 @@ export default {
     },
     applyTask(task) {
       this.currentTask = normalizeTask(task);
+      this.saveTaskFeedback(this.currentTask);
       this.startTracker(this.currentTask);
     },
     startTracker(task) {
@@ -154,14 +200,17 @@ export default {
         getTaskStatus,
         onUpdate: (nextTask, meta) => {
           this.currentTask = normalizeTask(nextTask);
+          this.saveTaskFeedback(this.currentTask);
           this.wsConnected = Boolean(meta && meta.connected);
         },
         onCompleted: async () => {
+          this.saveTaskFeedback(this.currentTask);
           uni.showToast({ title: "解析任务已完成", icon: "success" });
           await this.loadFacts();
         },
         onFailed: (failedTask) => {
           this.currentTask = normalizeTask(failedTask);
+          this.saveTaskFeedback(this.currentTask);
           showFormError(this.currentTask.message || "解析任务失败");
         },
         onError: (error) => {
@@ -321,3 +370,5 @@ export default {
   }
 }
 </style>
+
+
