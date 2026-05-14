@@ -2,9 +2,9 @@ from fastapi import APIRouter, Depends, Header, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.dependencies.auth import get_current_user
+from app.modules.auth.deps import get_current_user
 from app.models.user import User
-from app.schemas.ai import (
+from app.modules.ai.schemas import (
     AITaskListResponse,
     AITaskRetryRequest,
     AITaskRetryResponse,
@@ -19,7 +19,7 @@ from app.schemas.ai import (
     FalsificationResultResponse,
     FalsificationStartResponse,
 )
-from app.services.ai import AIService
+from app.modules.ai.service import AIService
 
 
 router = APIRouter(prefix="/ai", tags=["AI"])

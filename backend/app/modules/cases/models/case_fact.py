@@ -4,7 +4,7 @@ from sqlalchemy import Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class CaseFact(Base, TimestampMixin):
@@ -23,4 +23,5 @@ class CaseFact(Base, TimestampMixin):
 
     case = relationship("Case")
     file = relationship("File")
+
 

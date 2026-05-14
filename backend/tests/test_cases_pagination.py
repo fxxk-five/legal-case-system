@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from app.models.case import Case
+from app.modules.cases.models.case import Case
 
 
 def _auth_header(token: str) -> dict[str, str]:

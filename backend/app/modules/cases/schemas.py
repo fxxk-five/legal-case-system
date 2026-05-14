@@ -3,8 +3,14 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 from app.core.legal_types import is_valid_legal_type, normalize_legal_type
-from app.schemas.user import UserSummary
-from app.schemas.validators import validate_phone
+from app.modules.users.schemas import UserSummary
+from app.core.validators import validate_phone
+
+
+def _normalize_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value.strip()
 
 
 class CaseCreate(BaseModel):
@@ -12,8 +18,9 @@ class CaseCreate(BaseModel):
     title: str = Field(min_length=1, max_length=255)
     legal_type: str = Field(min_length=1, max_length=50)
     client_phone: str = Field(min_length=11, max_length=20)
-    client_real_name: str = Field(default="未命名当事人", min_length=1, max_length=100)
+    client_real_name: str = Field(default="鏈懡鍚嶅綋浜嬩汉", min_length=1, max_length=100)
     deadline: datetime | None = None
+    upload_guide: str | None = Field(default=None, max_length=2000)
 
     @field_validator("client_phone")
     @classmethod
@@ -25,8 +32,13 @@ class CaseCreate(BaseModel):
     def _validate_legal_type(cls, value: str) -> str:
         normalized = normalize_legal_type(value)
         if not is_valid_legal_type(normalized):
-            raise ValueError("法律类型不合法。")
+            raise ValueError("Invalid legal type.")
         return normalized
+
+    @field_validator("upload_guide")
+    @classmethod
+    def _validate_upload_guide(cls, value: str | None) -> str | None:
+        return _normalize_text(value) or None
 
 
 class CaseUpdate(BaseModel):
@@ -35,6 +47,7 @@ class CaseUpdate(BaseModel):
     legal_type: str | None = Field(default=None, min_length=1, max_length=50)
     deadline: datetime | None = None
     assigned_lawyer_id: int | None = None
+    upload_guide: str | None = Field(default=None, max_length=2000)
 
     @field_validator("legal_type")
     @classmethod
@@ -43,8 +56,34 @@ class CaseUpdate(BaseModel):
             return None
         normalized = normalize_legal_type(value)
         if not is_valid_legal_type(normalized):
-            raise ValueError("法律类型不合法。")
+            raise ValueError("Invalid legal type.")
         return normalized
+
+    @field_validator("upload_guide")
+    @classmethod
+    def _validate_case_update_upload_guide(cls, value: str | None) -> str | None:
+        return _normalize_text(value) or None
+
+
+class CaseClientRemarkUpdate(BaseModel):
+    client_remark: str = Field(max_length=2000)
+
+    @field_validator("client_remark")
+    @classmethod
+    def _validate_client_remark(cls, value: str) -> str:
+        normalized = _normalize_text(value) or ""
+        if not normalized:
+            raise ValueError("Client remark cannot be empty.")
+        return normalized
+
+
+class CaseLawyerRemarkUpdate(BaseModel):
+    lawyer_remark: str = Field(max_length=5000)
+
+    @field_validator("lawyer_remark")
+    @classmethod
+    def _validate_lawyer_remark(cls, value: str) -> str:
+        return _normalize_text(value) or ""
 
 
 class CaseTimelineItem(BaseModel):
@@ -69,9 +108,15 @@ class CaseRead(BaseModel):
     deadline: datetime | None
     created_at: datetime
     updated_at: datetime
+    upload_guide: str | None = None
+    client_remark: str | None = None
     client: UserSummary | None = None
     assigned_lawyer: UserSummary | None = None
     timeline: list[CaseTimelineItem] = Field(default_factory=list)
+
+
+class CaseLawyerRead(CaseRead):
+    lawyer_remark: str | None = None
 
 
 class CaseListItem(BaseModel):
@@ -108,3 +153,5 @@ class CaseReportAccessLinkRead(BaseModel):
     file_name: str
     access_url: str
     expires_in_seconds: int
+
+

@@ -10,8 +10,8 @@ from uuid import uuid4
 
 from app.core.config import settings
 from app.db.session import SessionLocal
-from app.services.ai_queue import normalize_queue_driver
-from app.services.ai import AIService
+from app.modules.ai.queue import normalize_queue_driver
+from app.modules.ai.service import AIService
 
 
 logger = logging.getLogger("app.ai.worker")

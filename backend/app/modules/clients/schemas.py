@@ -4,7 +4,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.schemas.validators import validate_phone
+from app.core.validators import validate_phone
 
 
 class ClientCaseSummary(BaseModel):
@@ -22,6 +22,7 @@ class ClientListItem(BaseModel):
     id: int
     real_name: str
     phone: str
+    phone_masked: str
     status: int
     created_at: datetime
     updated_at: datetime
@@ -33,6 +34,7 @@ class ClientDetailRead(BaseModel):
     id: int
     real_name: str
     phone: str
+    phone_masked: str
     status: int
     created_at: datetime
     updated_at: datetime
@@ -49,3 +51,4 @@ class ClientUpdate(BaseModel):
     @classmethod
     def _validate_phone(cls, value: str) -> str:
         return validate_phone(value)
+

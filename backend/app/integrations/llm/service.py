@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Any
@@ -13,6 +12,13 @@ from fastapi import status
 
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
+from app.integrations.llm.payload_utils import (
+    ensure_provider_configured,
+    extract_provider_error,
+    parse_json_payload,
+    summarize_provider_error,
+    summarize_provider_payload,
+)
 
 
 logger = logging.getLogger("app.ai.provider")
@@ -32,6 +38,14 @@ class OpenAICompatibleProvider:
         self.model = settings.EFFECTIVE_AI_MODEL
         self.timeout_seconds = settings.OPENAI_TIMEOUT_SECONDS
 
+    def _ensure_provider_ready(self) -> None:
+        ensure_provider_configured(
+            api_key=self.api_key,
+            api_base=self.api_base,
+            model=self.model,
+            logger=logger,
+        )
+
     def generate_parse_facts(
         self,
         *,
@@ -40,9 +54,10 @@ class OpenAICompatibleProvider:
         file_name: str,
         file_type: str,
         parse_options: dict,
+        case_context: dict[str, Any] | None = None,
         model_override: str | None = None,
     ) -> ProviderReply:
-        self._ensure_configured()
+        self._ensure_provider_ready()
 
         system_prompt = (
             "你是法律案件事实提取助手。必须仅返回 JSON。"
@@ -56,6 +71,7 @@ class OpenAICompatibleProvider:
                 "file_name": file_name,
                 "file_type": file_type,
                 "parse_options": parse_options,
+                "case_context": case_context or {},
                 "output_schema": {
                     "facts": [
                         {
@@ -75,6 +91,7 @@ class OpenAICompatibleProvider:
                     "facts length between 2 and 8",
                     "confidence range 0.5~0.99",
                     "content concise and business-safe",
+                    "case_context remarks may supplement missing factual background",
                 ],
             },
             ensure_ascii=False,
@@ -95,9 +112,10 @@ class OpenAICompatibleProvider:
         fact_texts: list[str],
         focus_areas: list[str],
         include_precedents: bool,
+        case_context: dict[str, Any] | None = None,
         model_override: str | None = None,
     ) -> ProviderReply:
-        self._ensure_configured()
+        self._ensure_provider_ready()
 
         system_prompt = "你是资深法律分析助手。必须仅返回 JSON。"
         user_prompt = json.dumps(
@@ -108,6 +126,7 @@ class OpenAICompatibleProvider:
                 "fact_texts": fact_texts[:60],
                 "focus_areas": focus_areas,
                 "include_precedents": include_precedents,
+                "case_context": case_context or {},
                 "output_schema": {
                     "summary": "string",
                     "win_rate": 0.68,
@@ -120,6 +139,7 @@ class OpenAICompatibleProvider:
                 "constraints": [
                     "win_rate range 0~1",
                     "strengths/weaknesses/recommendations each 2~5 items",
+                    "when case_context contains remarks, incorporate them into reasoning priorities",
                 ],
             },
             ensure_ascii=False,
@@ -141,7 +161,7 @@ class OpenAICompatibleProvider:
         iteration: int,
         model_override: str | None = None,
     ) -> ProviderReply:
-        self._ensure_configured()
+        self._ensure_provider_ready()
 
         system_prompt = "你是法律论证证伪助手。必须仅返回 JSON。"
         user_prompt = json.dumps(
@@ -206,8 +226,13 @@ class OpenAICompatibleProvider:
                 raw = json.loads(resp_body)
         except url_error.HTTPError as exc:
             raw_error = exc.read().decode("utf-8", errors="ignore")
-            logger.error("ai.provider.http_error status=%s body=%s", exc.code, raw_error)
-            detail = self._extract_provider_error(raw_error)
+            detail = extract_provider_error(raw_error)
+            logger.error(
+                "ai.provider.http_error status=%s body_length=%s summary=%s",
+                exc.code,
+                len(raw_error),
+                summarize_provider_error(raw_error),
+            )
             raise AppError(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 code=ErrorCode.AI_PROVIDER_ERROR,
@@ -233,79 +258,19 @@ class OpenAICompatibleProvider:
 
         try:
             content = raw["choices"][0]["message"]["content"]
-            parsed = self._parse_json_payload(content)
+            parsed = parse_json_payload(content)
             model = str(raw.get("model") or resolved_model)
             usage = int((raw.get("usage") or {}).get("total_tokens") or 0)
             return ProviderReply(payload=parsed, model=model, token_usage=usage)
         except Exception as exc:  # noqa: BLE001
-            logger.error("ai.provider.invalid_response payload=%s", raw)
+            logger.error(
+                "ai.provider.invalid_response summary=%s error=%s",
+                summarize_provider_payload(raw),
+                type(exc).__name__,
+            )
             raise AppError(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 code=ErrorCode.AI_PROVIDER_ERROR,
                 message="AI服务返回内容无法解析。",
                 detail=str(exc),
             ) from exc
-
-    def _parse_json_payload(self, content: str) -> dict[str, Any]:
-        text = content.strip()
-        text = re.sub(r"^```json\s*", "", text, flags=re.IGNORECASE)
-        text = re.sub(r"^```\s*", "", text)
-        text = re.sub(r"\s*```$", "", text)
-        if text.startswith("{") and text.endswith("}"):
-            return json.loads(text)
-
-        first = text.find("{")
-        last = text.rfind("}")
-        if first == -1 or last == -1 or first >= last:
-            raise ValueError("no_json_object")
-        return json.loads(text[first : last + 1])
-
-    def _extract_provider_error(self, raw_error: str) -> str:
-        try:
-            parsed = json.loads(raw_error)
-            return (
-                parsed.get("error", {}).get("message")
-                or parsed.get("message")
-                or "upstream_error"
-            )
-        except Exception:  # noqa: BLE001
-            return raw_error[:500] or "upstream_error"
-
-    def _ensure_configured(self) -> None:
-        if not settings.AI_ENABLED:
-            logger.error("ai.provider.disabled ai_enabled=%s", settings.AI_ENABLED)
-            raise AppError(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                code=ErrorCode.AI_OPERATION_NOT_ALLOWED,
-                message="AI功能未启用。",
-                detail="AI功能未启用。",
-            )
-        if not self.api_key:
-            logger.error(
-                "ai.provider.misconfigured missing_api_key base=%s model=%s mock_mode=%s",
-                self.api_base,
-                self.model,
-                settings.AI_MOCK_MODE,
-            )
-            raise AppError(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                message="OPENAI_API_KEY 未配置。",
-                detail="OPENAI_API_KEY 未配置。",
-            )
-        if not self.api_base:
-            logger.error("ai.provider.misconfigured missing_api_base")
-            raise AppError(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                message="OPENAI_BASE_URL/OPENAI_API_BASE 未配置。",
-                detail="OPENAI_BASE_URL/OPENAI_API_BASE 未配置。",
-            )
-        if not self.model:
-            logger.error("ai.provider.misconfigured missing_model")
-            raise AppError(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                code=ErrorCode.EXTERNAL_SERVICE_ERROR,
-                message="AI_MODEL/OPENAI_MODEL 未配置。",
-                detail="AI_MODEL/OPENAI_MODEL 未配置。",
-            )

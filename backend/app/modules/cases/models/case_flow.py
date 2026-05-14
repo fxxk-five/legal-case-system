@@ -2,7 +2,7 @@ from sqlalchemy import ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class CaseFlow(Base, TimestampMixin):
@@ -20,3 +20,4 @@ class CaseFlow(Base, TimestampMixin):
     tenant = relationship("Tenant")
     case = relationship("Case", back_populates="flows")
     operator = relationship("User")
+

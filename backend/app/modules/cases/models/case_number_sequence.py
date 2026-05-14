@@ -2,7 +2,7 @@ from sqlalchemy import ForeignKey, Integer, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class CaseNumberSequence(Base, TimestampMixin):
@@ -17,3 +17,4 @@ class CaseNumberSequence(Base, TimestampMixin):
     next_value: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
 
     tenant = relationship("Tenant")
+

@@ -1,3 +1,6 @@
+import os
+from urllib.parse import urlparse
+
 from pydantic import computed_field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -22,7 +25,9 @@ class Settings(BaseSettings):
     WECHAT_MINIAPP_APP_ID: str = ""
     WECHAT_MINIAPP_APP_SECRET: str = ""
     WECHAT_MINIAPP_MOCK_LOGIN: bool = True
-    WECHAT_MINIAPP_CLIENT_ENTRY_PAGE: str = "pages/login/index"
+    WECHAT_MINIAPP_CLIENT_ENTRY_PAGE: str = "pages/client/entry"
+    WECHAT_IDENTITY_ENCRYPTION_SECRET: str = "replace-with-wechat-identity-encryption-secret"
+    WECHAT_IDENTITY_HASH_SECRET: str = "replace-with-wechat-identity-hash-secret"
     FILE_ACCESS_TOKEN_EXPIRE_MINUTES: int = 10
     FILE_UPLOAD_MAX_SIZE_BYTES: int = 50 * 1024 * 1024
     FILE_UPLOAD_ALLOWED_EXTENSIONS: list[str] = [
@@ -65,6 +70,10 @@ class Settings(BaseSettings):
     TENCENT_COS_SECRET_KEY: str = ""
     TENCENT_COS_BUCKET: str = ""
     TENCENT_COS_REGION: str = ""
+    TENCENT_ASR_SECRET_ID: str = ""
+    TENCENT_ASR_SECRET_KEY: str = ""
+    TENCENT_ASR_REGION: str = "ap-guangzhou"
+    ASR_MAX_UPLOAD_SIZE_BYTES: int = 3 * 1024 * 1024
     ALIYUN_OSS_ACCESS_KEY_ID: str = ""
     ALIYUN_OSS_ACCESS_KEY_SECRET: str = ""
     ALIYUN_OSS_BUCKET: str = ""
@@ -90,7 +99,11 @@ class Settings(BaseSettings):
     AI_DB_QUEUE_MAX_RETRIES: int = 3
     AI_DB_QUEUE_RETRY_BACKOFF_SECONDS: int = 30
     AI_DB_QUEUE_STALE_TASK_SECONDS: int = 900
-    AI_DB_QUEUE_HEARTBEAT_FILE: str = "/tmp/legal-ai-worker-heartbeat.json"
+    AI_DB_QUEUE_HEARTBEAT_FILE: str = (
+        "/tmp/legal-ai-worker-heartbeat.json"
+        if os.name != "nt"
+        else "./.runtime/legal-ai-worker-heartbeat.json"
+    )
     AI_DB_QUEUE_HEALTHCHECK_MAX_AGE_SECONDS: int = 90
     AI_DB_QUEUE_WORKER_ID: str = ""
     TENCENT_QUEUE_REGION: str = ""
@@ -120,6 +133,46 @@ class Settings(BaseSettings):
             return None
         return value
 
+    @staticmethod
+    def _is_placeholder_value(value: str | None) -> bool:
+        normalized = (value or "").strip().lower()
+        if not normalized:
+            return True
+        placeholder_markers = (
+            "<replace",
+            "replace-with-",
+            "local-smoke",
+            "change-me-in-production",
+        )
+        return any(marker in normalized for marker in placeholder_markers)
+
+    @classmethod
+    def _require_non_placeholder_value(cls, field_name: str, value: str | None) -> None:
+        if cls._is_placeholder_value(value):
+            raise ValueError(
+                f"{field_name} must be set to a non-placeholder value outside development and test environments"
+            )
+
+    @classmethod
+    def _validate_production_cors_origins(cls, origins: list[str]) -> None:
+        if not origins:
+            raise ValueError("BACKEND_CORS_ORIGINS must be configured outside development and test environments")
+
+        for origin in origins:
+            normalized = (origin or "").strip()
+            if not normalized:
+                raise ValueError("BACKEND_CORS_ORIGINS must not contain empty origins")
+            if "*" in normalized:
+                raise ValueError("BACKEND_CORS_ORIGINS must not include wildcard origins outside development and test environments")
+
+            parsed = urlparse(normalized)
+            if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+                raise ValueError(f"BACKEND_CORS_ORIGINS contains an invalid origin: {origin}")
+            if parsed.params or parsed.query or parsed.fragment:
+                raise ValueError(f"BACKEND_CORS_ORIGINS contains an invalid origin: {origin}")
+            if parsed.path not in {"", "/"}:
+                raise ValueError(f"BACKEND_CORS_ORIGINS contains an invalid origin: {origin}")
+
     @computed_field
     @property
     def DATABASE_URL(self) -> str:
@@ -145,16 +198,51 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_ai_runtime_config(self) -> "Settings":
-        if self.IS_PRODUCTION and self.SECRET_KEY == "change-me-in-production":
-            raise ValueError("SECRET_KEY must be overridden outside development and test environments")
-        if self.IS_PRODUCTION and any("localhost" in origin or "127.0.0.1" in origin for origin in self.BACKEND_CORS_ORIGINS):
-            raise ValueError("BACKEND_CORS_ORIGINS must not include localhost origins outside development and test environments")
-        if self.IS_PRODUCTION and self.AI_ENABLED and self.AI_MOCK_MODE:
-            raise ValueError("AI_MOCK_MODE must be disabled outside development and test environments")
+        if self.IS_PRODUCTION:
+            if self.SECRET_KEY.strip().lower() == "change-me-in-production":
+                raise ValueError("SECRET_KEY must be changed in production")
+            self._require_non_placeholder_value("POSTGRES_PASSWORD", self.POSTGRES_PASSWORD)
+            self._require_non_placeholder_value("SECRET_KEY", self.SECRET_KEY)
+            self._validate_production_cors_origins(self.BACKEND_CORS_ORIGINS)
+            if any("localhost" in origin or "127.0.0.1" in origin for origin in self.BACKEND_CORS_ORIGINS):
+                raise ValueError(
+                    "BACKEND_CORS_ORIGINS must not include localhost origins outside development and test environments"
+                )
+            if self.WECHAT_MINIAPP_MOCK_LOGIN:
+                raise ValueError("WECHAT_MINIAPP_MOCK_LOGIN must be disabled outside development and test environments")
+            self._require_non_placeholder_value("WECHAT_MINIAPP_APP_ID", self.WECHAT_MINIAPP_APP_ID)
+            self._require_non_placeholder_value("WECHAT_MINIAPP_APP_SECRET", self.WECHAT_MINIAPP_APP_SECRET)
+            self._require_non_placeholder_value(
+                "WECHAT_IDENTITY_ENCRYPTION_SECRET",
+                self.WECHAT_IDENTITY_ENCRYPTION_SECRET,
+            )
+            self._require_non_placeholder_value(
+                "WECHAT_IDENTITY_HASH_SECRET",
+                self.WECHAT_IDENTITY_HASH_SECRET,
+            )
+            if self.WECHAT_IDENTITY_ENCRYPTION_SECRET.strip() == self.SECRET_KEY.strip():
+                raise ValueError(
+                    "WECHAT_IDENTITY_ENCRYPTION_SECRET must not reuse SECRET_KEY outside development and test environments"
+                )
+            if self.WECHAT_IDENTITY_HASH_SECRET.strip() == self.SECRET_KEY.strip():
+                raise ValueError(
+                    "WECHAT_IDENTITY_HASH_SECRET must not reuse SECRET_KEY outside development and test environments"
+                )
+            if self.STORAGE_BACKEND != "cos":
+                raise ValueError("STORAGE_BACKEND must be set to 'cos' outside development and test environments")
+            if self.STORAGE_DELETE_POLICY != "archive":
+                raise ValueError(
+                    "STORAGE_DELETE_POLICY must be set to 'archive' outside development and test environments"
+                )
+            self._require_non_placeholder_value("TENCENT_COS_SECRET_ID", self.TENCENT_COS_SECRET_ID)
+            self._require_non_placeholder_value("TENCENT_COS_SECRET_KEY", self.TENCENT_COS_SECRET_KEY)
+            self._require_non_placeholder_value("TENCENT_COS_BUCKET", self.TENCENT_COS_BUCKET)
+            self._require_non_placeholder_value("TENCENT_COS_REGION", self.TENCENT_COS_REGION)
+            if self.AI_ENABLED and self.AI_MOCK_MODE:
+                raise ValueError("AI_MOCK_MODE must be disabled outside development and test environments")
         if not self.AI_ENABLED or self.AI_MOCK_MODE:
             return self
-        if not self.OPENAI_API_KEY.strip():
-            raise ValueError("OPENAI_API_KEY must be set when AI mock mode is disabled")
+        self._require_non_placeholder_value("OPENAI_API_KEY", self.OPENAI_API_KEY)
         if not self.EFFECTIVE_OPENAI_BASE_URL:
             raise ValueError("OPENAI_BASE_URL or OPENAI_API_BASE must be set when AI mock mode is disabled")
         if not self.EFFECTIVE_AI_MODEL:

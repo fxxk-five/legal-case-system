@@ -9,7 +9,7 @@ from fastapi import status
 
 from app.core.config import settings
 from app.core.errors import AppError, ErrorCode
-from app.models.ai_task import AITask
+from app.modules.ai.models.ai_task import AITask
 
 
 logger = logging.getLogger("app.ai.queue")

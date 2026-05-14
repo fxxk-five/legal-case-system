@@ -1,9 +1,9 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from uuid import uuid4
 
-from app.models.ai_task import AITask
-from app.models.case import Case
+from app.modules.ai.models.ai_task import AITask
+from app.modules.cases.models.case import Case
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -25,6 +25,19 @@ def _create_task(*, db_session, case_id: int, tenant_id: int, status: str = "pen
     return task
 
 
+def _login_lawyer(client) -> dict:
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"phone": "13800000001", "password": "pwd123456"},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+def _auth_header(token: str) -> dict[str, str]:
+    return {"Authorization": f"Bearer {token}"}
+
+
 def test_ws_requires_token(client):
     task_id = str(uuid4())
     with client.websocket_connect(f"/ws/ai/tasks/{task_id}") as websocket:
@@ -32,6 +45,43 @@ def test_ws_requires_token(client):
         assert payload["type"] == "failed"
         assert payload["task_id"] == task_id
         assert "Missing auth token." in payload["error"]
+
+
+def test_ws_rejects_refresh_token(client, db_session, seeded_data):
+    task = _create_task(
+        db_session=db_session,
+        case_id=seeded_data["case"].id,
+        tenant_id=seeded_data["tenant"].id,
+        status="completed",
+    )
+    login_payload = _login_lawyer(client)
+
+    with client.websocket_connect(f"/ws/ai/tasks/{task.task_id}?token={login_payload['refresh_token']}") as websocket:
+        payload = websocket.receive_json()
+        assert payload["type"] == "failed"
+        assert payload["task_id"] == task.task_id
+        assert "access token is required" in payload["error"]
+
+
+def test_ws_rejects_revoked_access_session(client, db_session, seeded_data):
+    task = _create_task(
+        db_session=db_session,
+        case_id=seeded_data["case"].id,
+        tenant_id=seeded_data["tenant"].id,
+        status="completed",
+    )
+    login_payload = _login_lawyer(client)
+    logout_resp = client.post(
+        "/api/v1/auth/logout",
+        headers=_auth_header(login_payload["access_token"]),
+    )
+    assert logout_resp.status_code == 204
+
+    with client.websocket_connect(f"/ws/ai/tasks/{task.task_id}?token={login_payload['access_token']}") as websocket:
+        payload = websocket.receive_json()
+        assert payload["type"] == "failed"
+        assert payload["task_id"] == task.task_id
+        assert "session has expired" in payload["error"]
 
 
 def test_ws_client_can_subscribe_own_case_task(client, db_session, seeded_data):

@@ -5,7 +5,7 @@ from sqlalchemy import Boolean, DateTime, Integer, JSON, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class Tenant(Base, TimestampMixin):
@@ -28,3 +28,4 @@ class Tenant(Base, TimestampMixin):
     cases = relationship("Case", back_populates="tenant")
     files = relationship("File", back_populates="tenant")
     invites = relationship("Invite", back_populates="tenant")
+

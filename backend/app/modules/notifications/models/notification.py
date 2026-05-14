@@ -2,7 +2,7 @@ from sqlalchemy import Boolean, ForeignKey, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class Notification(Base, TimestampMixin):
@@ -16,3 +16,4 @@ class Notification(Base, TimestampMixin):
     is_read: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
 
     user = relationship("User", back_populates="notifications")
+

@@ -1,12 +1,13 @@
 from datetime import datetime, timedelta, timezone
 
+from app.core.config import settings
 from app.core.statuses import UserStatus
-from app.models.case import Case
-from app.models.invite import Invite
+from app.modules.cases.models.case import Case
+from app.modules.invites.models.invite import Invite
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.models.web_login_ticket import WebLoginTicket
-from app.services.mini_program import create_case_invite_token, exchange_code_for_identity
+from app.integrations.wechat.service import create_case_invite_token, exchange_code_for_identity
 
 
 def _mini_headers() -> dict[str, str]:
@@ -53,6 +54,51 @@ def test_wx_mini_login_signs_in_bound_user_directly(client, db_session, seeded_d
     assert payload["login_state"] == "LOGGED_IN"
     assert payload["access_token"]
     assert payload["refresh_token"]
+    assert payload["user"]["phone"] == "13800000001"
+
+
+def test_wechat_identity_is_encrypted_at_rest(db_session, seeded_data):
+    _ = seeded_data
+    identity = exchange_code_for_identity("encrypted-lawyer")
+    lawyer = db_session.query(User).filter(User.phone == "13800000001").one()
+    lawyer.wechat_openid = identity.openid
+    lawyer.wechat_unionid = identity.unionid
+    db_session.add(lawyer)
+    db_session.commit()
+
+    db_session.expire_all()
+    reloaded = db_session.query(User).filter(User.phone == "13800000001").one()
+    assert reloaded.wechat_openid == identity.openid
+    assert reloaded.wechat_unionid == identity.unionid
+    assert reloaded._wechat_openid_ciphertext is not None
+    assert reloaded._wechat_openid_ciphertext != identity.openid
+    assert reloaded.wechat_openid_hash is not None
+    assert reloaded.wechat_openid_hash != identity.openid
+    if identity.unionid:
+        assert reloaded._wechat_unionid_ciphertext is not None
+        assert reloaded._wechat_unionid_ciphertext != identity.unionid
+        assert reloaded.wechat_unionid_hash is not None
+        assert reloaded.wechat_unionid_hash != identity.unionid
+
+
+def test_wx_mini_login_supports_legacy_secret_key_bound_identity(client, db_session, seeded_data, monkeypatch):
+    _ = seeded_data
+    identity = exchange_code_for_identity("legacy-bound-lawyer")
+    lawyer = db_session.query(User).filter(User.phone == "13800000001").one()
+
+    monkeypatch.setattr(settings, "WECHAT_IDENTITY_ENCRYPTION_SECRET", settings.SECRET_KEY)
+    monkeypatch.setattr(settings, "WECHAT_IDENTITY_HASH_SECRET", settings.SECRET_KEY)
+    lawyer.wechat_openid = identity.openid
+    lawyer.wechat_unionid = identity.unionid
+    db_session.add(lawyer)
+    db_session.commit()
+
+    monkeypatch.setattr(settings, "WECHAT_IDENTITY_ENCRYPTION_SECRET", "dedicated-wechat-encryption-secret-001")
+    monkeypatch.setattr(settings, "WECHAT_IDENTITY_HASH_SECRET", "dedicated-wechat-hash-secret-001")
+
+    payload = _start_wechat_login(client, "legacy-bound-lawyer")
+    assert payload["need_bind_phone"] is False
+    assert payload["login_state"] == "LOGGED_IN"
     assert payload["user"]["phone"] == "13800000001"
 
 
@@ -153,11 +199,13 @@ def test_wx_mini_phone_login_creates_client_from_invite(client, db_session, seed
     payload = response.json()
     assert payload["user"]["role"] == "client"
     assert payload["user"]["phone"] == "13800000009"
+    assert payload["user"]["must_reset_password"] is True
 
     db_session.expire_all()
     created_user = db_session.query(User).filter(User.phone == "13800000009").one()
     refreshed_case = db_session.query(Case).filter(Case.id == seeded_case.id).one()
     assert created_user.wechat_openid is not None
+    assert created_user.must_reset_password is True
     assert refreshed_case.client_id == created_user.id
 
     password_login_resp = client.post(
@@ -245,11 +293,13 @@ def test_wx_mini_phone_login_creates_pending_lawyer_from_invite(client, db_sessi
     assert payload["access_token"] is None
     assert payload["user"]["role"] == "lawyer"
     assert payload["user"]["status"] == int(UserStatus.PENDING_APPROVAL)
+    assert payload["user"]["must_reset_password"] is True
 
     db_session.expire_all()
     created_user = db_session.query(User).filter(User.phone == "13800000008").one()
     refreshed_invite = db_session.query(Invite).filter(Invite.token == invite.token).one()
     assert created_user.wechat_openid is not None
+    assert created_user.must_reset_password is True
     assert refreshed_invite.status == "used"
 
 
@@ -309,7 +359,7 @@ def test_web_wechat_login_ticket_confirm_and_exchange(client, db_session, seeded
 
     confirm_response = client.post(
         f"/api/v1/auth/web-wechat-login/{ticket}/confirm",
-        headers=_mini_auth_headers(seeded_data["lawyer_token"]),
+        headers=_mini_auth_headers(seeded_data["lawyer_mini_token"]),
     )
     assert confirm_response.status_code == 200
     confirm_payload = confirm_response.json()
@@ -335,7 +385,7 @@ def test_web_wechat_login_ticket_rejects_client_confirm(client, seeded_data):
 
     response = client.post(
         f"/api/v1/auth/web-wechat-login/{ticket}/confirm",
-        headers=_mini_auth_headers(seeded_data["client_token"]),
+        headers=_mini_auth_headers(seeded_data["client_mini_token"]),
     )
     assert response.status_code == 403
     assert response.json()["code"] == "FORBIDDEN"

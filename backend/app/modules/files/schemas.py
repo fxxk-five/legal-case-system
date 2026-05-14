@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict
 
-from app.schemas.user import UserSummary
+from app.modules.users.schemas import UserSummary
 
 
 class FileRead(BaseModel):
@@ -47,3 +47,4 @@ class FileUploadPolicyRead(BaseModel):
 class FileUploadCompleteRequest(BaseModel):
     completion_token: str
     description: str | None = None
+

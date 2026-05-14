@@ -4,7 +4,7 @@ from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base_class import Base
-from app.models.mixins import TimestampMixin
+from app.db.mixins import TimestampMixin
 
 
 class AuthSession(Base, TimestampMixin):
@@ -24,3 +24,4 @@ class AuthSession(Base, TimestampMixin):
     user_agent: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
     user = relationship("User", back_populates="auth_sessions")
+

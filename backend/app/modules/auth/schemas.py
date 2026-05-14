@@ -2,12 +2,18 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.schemas.validators import validate_password, validate_phone, validate_sms_code, validate_tenant_code
+from app.core.validators import (
+    validate_existing_password,
+    validate_password,
+    validate_phone,
+    validate_sms_code,
+    validate_tenant_code,
+)
 
 
 class UserRegister(BaseModel):
     phone: str = Field(min_length=11, max_length=20)
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=10, max_length=128)
     real_name: str = Field(min_length=1, max_length=100)
     tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
 
@@ -31,7 +37,7 @@ class UserRegister(BaseModel):
 
 class PhoneRegisterRequest(BaseModel):
     phone: str = Field(min_length=11, max_length=20)
-    password: str = Field(min_length=8, max_length=128)
+    password: str = Field(min_length=10, max_length=128)
     real_name: str = Field(min_length=1, max_length=100)
     tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
     phone_verification_token: str = Field(min_length=16, max_length=255)
@@ -58,6 +64,7 @@ class UserLogin(BaseModel):
     phone: str = Field(min_length=11, max_length=20)
     password: str = Field(min_length=8, max_length=128)
     tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
+    case_invite_token: str | None = Field(default=None, min_length=16, max_length=4096)
 
     @field_validator("phone")
     @classmethod
@@ -67,7 +74,7 @@ class UserLogin(BaseModel):
     @field_validator("password")
     @classmethod
     def _validate_password(cls, value: str) -> str:
-        return validate_password(value)
+        return validate_existing_password(value)
 
     @field_validator("tenant_code")
     @classmethod
@@ -120,6 +127,7 @@ class SmsCodeLoginRequest(BaseModel):
     phone: str = Field(min_length=11, max_length=20)
     code: str = Field(min_length=6, max_length=6)
     tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
+    case_invite_token: str | None = Field(default=None, min_length=16, max_length=4096)
 
     @field_validator("phone")
     @classmethod
@@ -137,6 +145,33 @@ class SmsCodeLoginRequest(BaseModel):
         if value is None:
             return None
         return validate_tenant_code(value)
+
+
+class LoginAdviceRequest(BaseModel):
+    phone: str = Field(min_length=11, max_length=20)
+    tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
+    case_invite_token: str | None = Field(default=None, min_length=16, max_length=4096)
+
+    @field_validator("phone")
+    @classmethod
+    def _validate_phone(cls, value: str) -> str:
+        return validate_phone(value)
+
+    @field_validator("tenant_code")
+    @classmethod
+    def _validate_tenant_code(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return validate_tenant_code(value)
+
+
+class LoginAdviceResponse(BaseModel):
+    phone: str
+    requires_tenant_code: bool
+    requires_admin_approval: bool
+    recommended_entry: str = Field(pattern="^(web|mini-program)$")
+    login_state: str = Field(pattern="^(ready|pending_approval|not_found)$")
+    support_hint: str
 
 
 class WechatMiniLogin(BaseModel):
@@ -175,7 +210,7 @@ class WechatMiniBindExisting(BaseModel):
     @field_validator("password")
     @classmethod
     def _validate_password(cls, value: str) -> str:
-        return validate_password(value)
+        return validate_existing_password(value)
 
     @field_validator("tenant_code")
     @classmethod
@@ -188,7 +223,7 @@ class WechatMiniBindExisting(BaseModel):
 class WechatMiniBind(BaseModel):
     wx_session_ticket: str = Field(min_length=16, max_length=2048)
     phone: str = Field(min_length=11, max_length=20)
-    password: str | None = Field(default=None, min_length=8, max_length=128)
+    password: str | None = Field(default=None, min_length=10, max_length=128)
     real_name: str | None = Field(default=None, min_length=1, max_length=100)
     tenant_id: int | None = None
     tenant_code: str | None = Field(default=None, min_length=3, max_length=50)
@@ -239,6 +274,24 @@ class UserRead(BaseModel):
     role: str
     is_tenant_admin: bool
     status: int
+    must_reset_password: bool = False
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str | None = Field(default=None, min_length=8, max_length=128)
+    new_password: str = Field(min_length=10, max_length=128)
+
+    @field_validator("current_password")
+    @classmethod
+    def _validate_current_password(cls, value: str | None) -> str | None:
+        if value is None:
+            return None
+        return validate_existing_password(value)
+
+    @field_validator("new_password")
+    @classmethod
+    def _validate_new_password(cls, value: str) -> str:
+        return validate_password(value)
 
 
 class WechatMiniLoginResult(BaseModel):
@@ -282,3 +335,4 @@ class TokenPayload(BaseModel):
     is_tenant_admin: bool | None = None
     token_type: str | None = None
     sid: int | None = None
+

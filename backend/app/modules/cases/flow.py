@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from app.core.roles import normalize_role
-from app.models.case_flow import CaseFlow
+from app.modules.cases.models.case_flow import CaseFlow
+from app.modules.cases.repository import CasesRepository
 from app.models.user import User
 
 _ALLOWED_VISIBLE_TO = {"lawyer", "client", "both"}
@@ -24,17 +24,15 @@ def create_case_flow(
     if visibility not in _ALLOWED_VISIBLE_TO:
         visibility = "both"
 
-    flow = CaseFlow(
+    return CasesRepository(db).add_case_flow(
         tenant_id=tenant_id,
         case_id=case_id,
-        operator_id=operator.id if operator is not None else None,
-        operator_name=operator.real_name if operator is not None else None,
         action_type=action_type,
         content=content,
+        operator_id=operator.id if operator is not None else None,
+        operator_name=operator.real_name if operator is not None else None,
         visible_to=visibility,
     )
-    db.add(flow)
-    return flow
 
 
 def list_case_flows_for_viewer(
@@ -47,14 +45,8 @@ def list_case_flows_for_viewer(
     role = normalize_role(viewer_role)
     visible_values = {"client", "both"} if role == "client" else {"lawyer", "both"}
 
-    return (
-        db.query(CaseFlow)
-        .filter(
-            CaseFlow.tenant_id == tenant_id,
-            CaseFlow.case_id == case_id,
-            CaseFlow.visible_to.in_(visible_values),
-        )
-        .order_by(desc(CaseFlow.created_at), desc(CaseFlow.id))
-        .all()
+    return CasesRepository(db).list_case_flows_for_viewer(
+        tenant_id=tenant_id,
+        case_id=case_id,
+        visible_values=visible_values,
     )
-

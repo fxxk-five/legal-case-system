@@ -1,23 +1,17 @@
 from __future__ import annotations
 
-from app.core.security import create_access_token, get_password_hash
+from app.core.security import get_password_hash
 from app.models.tenant import Tenant
 from app.models.user import User
+from app.modules.auth.service import issue_session_bound_access_token
 
 
 def _auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def _make_token(user: User) -> str:
-    return create_access_token(
-        user.id,
-        extra_data={
-            "tenant_id": user.tenant_id,
-            "role": user.role,
-            "is_tenant_admin": user.is_tenant_admin,
-        },
-    )
+def _make_token(db_session, user: User) -> str:
+    return issue_session_bound_access_token(db_session, user=user, channel="test_status_role")
 
 
 def test_super_admin_can_update_tenant_status_and_invalid_reverse_transition_is_rejected(client, db_session):
@@ -42,7 +36,7 @@ def test_super_admin_can_update_tenant_status_and_invalid_reverse_transition_is_
     db_session.add(super_admin)
     db_session.commit()
 
-    token = _make_token(super_admin)
+    token = _make_token(db_session, super_admin)
 
     to_archived = client.patch(
         f"/api/v1/tenants/{tenant.id}/status",
@@ -85,7 +79,7 @@ def test_invalid_user_status_transition_is_rejected(client, db_session, seeded_d
     db_session.add_all([tenant_admin, pending_lawyer])
     db_session.commit()
 
-    admin_token = _make_token(tenant_admin)
+    admin_token = _make_token(db_session, tenant_admin)
 
     approve_resp = client.patch(
         f"/api/v1/users/{pending_lawyer.id}/approve",
@@ -118,7 +112,7 @@ def test_org_lawyer_role_alias_can_create_case(client, db_session, seeded_data):
     db_session.add(org_lawyer)
     db_session.commit()
 
-    org_lawyer_token = _make_token(org_lawyer)
+    org_lawyer_token = _make_token(db_session, org_lawyer)
 
     create_case_resp = client.post(
         "/api/v1/cases",
