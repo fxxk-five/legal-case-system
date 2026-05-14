@@ -9,8 +9,17 @@ $loginBody = @{
     password = "admin123456"
 } | ConvertTo-Json
 
-$login = Invoke-RestMethod -Uri "$baseUrl/auth/login" -Method Post -ContentType "application/json" -Body $loginBody
-$headers = @{ Authorization = "Bearer $($login.access_token)" }
+$miniHeaders = @{
+    "X-Client-Platform" = "mini-program"
+    "X-Client-Source" = "wx-mini"
+}
+
+$login = Invoke-RestMethod -Uri "$baseUrl/auth/login" -Method Post -ContentType "application/json" -Body $loginBody -Headers $miniHeaders
+$headers = @{
+    Authorization = "Bearer $($login.access_token)"
+    "X-Client-Platform" = "mini-program"
+    "X-Client-Source" = "wx-mini"
+}
 
 $cases = Invoke-RestMethod -Uri "$baseUrl/cases" -Headers $headers
 if (-not $cases -or $cases.Count -eq 0) {

@@ -1,4 +1,4 @@
-# 后端模块边界总清单
+﻿# 后端模块边界总清单
 
 更新时间：2026-04-01
 当前分支：`codex/refactor-backend-module-boundaries`

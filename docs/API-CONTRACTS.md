@@ -1,290 +1,195 @@
-# API 契约（单一真源 / SSOT）
+﻿# API 契约
 
-> 基线代码：`backend/app/api`、`backend/app/services`
 > 统一前缀：`/api/v1`
-> 更新时间：2026-03-19（与当前仓库实现对齐）
+> 当前路由聚合入口：`backend/app/api/api_v1.py`
 
-## 1. 通用约定
+## 通用约定
 
-### 1.1 鉴权
-- 除明确匿名接口外，统一使用：`Authorization: Bearer <token>`。
-- JWT 关键 claim：`sub`、`tenant_id`、`role`、`is_tenant_admin`。
+- 认证方式：`Authorization: Bearer <token>`
+- 全局请求链路会返回 `X-Request-ID`
+- WebSocket AI 进度通道：`/ws/ai/tasks/{task_id}`
 
-### 1.2 错误响应结构（统一）
+### 错误响应
 
 ```json
 {
-  "code": "CASE_NOT_FOUND",
-  "message": "案件不存在。",
-  "detail": "案件不存在。",
+  "code": "VALIDATION_ERROR",
+  "message": "Request validation failed.",
+  "detail": [],
   "request_id": "uuid"
 }
 ```
 
-### 1.3 常用错误码
-- 鉴权权限：`AUTH_REQUIRED`、`FORBIDDEN`
-- 租户用户：`TENANT_NOT_FOUND`、`TENANT_INACTIVE`、`USER_NOT_FOUND`、`USER_ALREADY_EXISTS`、`USER_NOT_ACTIVE`
-- 案件文件：`CASE_NOT_FOUND`、`CASE_ACCESS_DENIED`、`CASE_OPERATION_NOT_ALLOWED`、`FILE_NOT_FOUND`、`FILE_ACCESS_DENIED`、`FILE_TOKEN_INVALID`、`FILE_UPLOAD_INVALID`
-- 邀请通知：`INVITE_NOT_FOUND`、`INVITE_INVALID`、`INVITE_EXPIRED`、`NOTIFICATION_NOT_FOUND`
+常见错误码：
+
+- 鉴权：`AUTH_REQUIRED`、`FORBIDDEN`
+- 租户 / 用户：`TENANT_NOT_FOUND`、`TENANT_INACTIVE`、`USER_NOT_FOUND`、`USER_ALREADY_EXISTS`
+- 案件 / 文件：`CASE_NOT_FOUND`、`CASE_ACCESS_DENIED`、`CASE_OPERATION_NOT_ALLOWED`、`FILE_NOT_FOUND`、`FILE_ACCESS_DENIED`
 - AI：`AI_TASK_NOT_FOUND`、`AI_ANALYSIS_NOT_FOUND`、`AI_OPERATION_NOT_ALLOWED`、`AI_TASK_CONFLICT`
-- 通用：`VALIDATION_ERROR`、`CONFLICT`、`EXTERNAL_SERVICE_ERROR`、`INTERNAL_ERROR`
-
-### 1.4 AI 幂等键（已实现）
-- 适用接口：
-  - `POST /ai/cases/{case_id}/parse-document`
-  - `POST /ai/cases/{case_id}/analyze`
-  - `POST /ai/cases/{case_id}/falsification`
-- Header：`Idempotency-Key: <string>`（可选，最长 128）
-- 语义：
-  - 同租户、同案件、同任务类型、同发起人、同 key、同 payload：返回同一 `task_id`。
-  - 同 key 但 payload 不同：返回 `409 AI_TASK_CONFLICT`。
-
----
-
-## 2. 认证（Auth）
-
-### 2.1 `POST /auth/login`
-- 请求体：`phone`、`password`、可选 `tenant_code`
-- 成功：`200`，返回 `{access_token, token_type}`
-- 失败：
-  - `400 VALIDATION_ERROR`（多租户需显式 `tenant_code`）
-  - `401 AUTH_REQUIRED`（账号或密码错误）
-  - `404 TENANT_NOT_FOUND`（目标租户不存在或停用）
-
-### 2.2 `POST /auth/register`
-- 请求体：`phone`、`password`、`real_name`、可选 `tenant_code`
-- 成功：`201`，返回用户
-- 失败：
-  - `400 VALIDATION_ERROR`
-  - `409 USER_ALREADY_EXISTS`
-
-### 2.3 `POST /auth/wx-mini-login`
-- 请求体：`code`
-- 成功：
-  - 已绑定微信：`200`，返回 `{access_token, refresh_token, token_type, wechat_openid, need_bind_phone=false, login_state="LOGGED_IN", user}`
-  - 未绑定微信：`200`，返回 `{wechat_openid, need_bind_phone=true, login_state="NEED_PHONE_AUTH", wx_session_ticket}`
-- 失败：
-  - `400 WECHAT_API_ERROR`
-  - `403 USER_NOT_ACTIVE`
-
-### 2.4 `POST /auth/wx-mini-phone-login`
-- 请求体：`phone_code`、`wx_session_ticket`、可选 `tenant_code`/`case_invite_token`/`real_name`
-- 成功：`200`，返回 token + user，并把当前微信身份绑定到已有账号或当事人邀请案件
-- 失败：
-  - `400 VALIDATION_ERROR`
-  - `400 INVITE_REQUIRED`
-  - `401 AUTH_REQUIRED`
-  - `403 USER_NOT_ACTIVE`
-  - `404 TENANT_NOT_FOUND` / `CASE_NOT_FOUND`
-  - `409 CONFLICT`
-
-### 2.5 `POST /auth/wx-mini-bind-existing`
-- 请求体：`phone`、`password`、`wx_session_ticket`、可选 `tenant_code`
-- 成功：`200`，返回 token + user
-- 失败：
-  - `400 VALIDATION_ERROR`
-  - `401 AUTH_REQUIRED`
-  - `403 USER_NOT_ACTIVE`
-  - `404 TENANT_NOT_FOUND`
-  - `409 CONFLICT`
-
-### 2.6 `POST /auth/wx-mini-bind`
-- 兼容旧版小程序显式绑定接口；新版本优先使用 `wx-mini-phone-login` / `wx-mini-bind-existing`
-- 请求体：`wechat_openid`、`phone`、可选 `password`/`tenant_id`/`tenant_code`/`case_invite_token`
-- 成功：返回 token + user
-- 失败：
-  - `400 VALIDATION_ERROR`
-  - `400 INVITE_REQUIRED`
-  - `401 AUTH_REQUIRED`
-  - `403 USER_NOT_ACTIVE`
-  - `404 TENANT_NOT_FOUND` / `CASE_NOT_FOUND`
-  - `409 CONFLICT`
-
-### 2.7 `POST /auth/logout`
-- 请求体：可选 `refresh_token`
-- 成功：`204`
-- 说明：
-  - 若携带当前 refresh token，服务端会撤销对应 `auth_sessions`
-  - 退出登录只终止当前会话，不解绑已关联的微信身份
-
-### 2.8 `POST /auth/invite-register`
-- 请求体：`token`、`phone`、`password`、`real_name`
-- 成功：`201`
-- 失败：
-  - `404 INVITE_NOT_FOUND`
-  - `400 INVITE_INVALID` / `INVITE_EXPIRED`
-  - `409 USER_ALREADY_EXISTS`
-
----
-
-## 3. 用户与律师管理（Users）
-
-### 3.1 `GET /users/me`
-- 获取当前用户
-
-### 3.2 `GET /users/lawyers`
-- 权限：租户管理员
-- 失败：`403 FORBIDDEN`
-
-### 3.3 `POST /users/lawyers`
-- 权限：租户管理员
-- 失败：`409 USER_ALREADY_EXISTS`
 
-### 3.4 `GET /users/pending`
-- 权限：租户管理员
+## 认证与会话：`/auth`
+
+- `POST /auth/login`
+- `POST /auth/register`
+- `POST /auth/refresh`
+- `POST /auth/logout`
+- `POST /auth/password`
+- `POST /auth/sms/send`
+- `POST /auth/sms/verify`
+- `POST /auth/sms-login`
+- `POST /auth/login-advice`
+- `POST /auth/invite-register`
+- `POST /auth/wx-mini-login`
+- `POST /auth/wx-mini-phone-login`
+- `POST /auth/wx-mini-bind-existing`
+- `POST /auth/wx-mini-bind`
+- `POST /auth/web-wechat-login`
+- `GET /auth/web-wechat-login/{ticket}`
+- `GET /auth/web-wechat-login/{ticket}/mini-code`
+- `POST /auth/web-wechat-login/{ticket}/confirm`
+- `POST /auth/web-wechat-login/{ticket}/exchange`
+
+当前实现特征：
+
+- Web 支持密码 / 短信 / 微信扫码登录。
+- 小程序支持一键登录 / 短信 / 密码。
+- `POST /auth/login-advice` 用于登录前置判断（是否需 tenant_code、是否待审批、推荐端）。
+- 同手机号命中多个租户时需要 `tenant_code`。
+- 邀请绑案可在登录时自动完成。
+
+`POST /auth/login-advice` 请求体：
+
+```json
+{
+  "phone": "13800000000",
+  "tenant_code": "tenant_demo",
+  "case_invite_token": null
+}
+```
+
+返回关键字段：
+
+- `requires_tenant_code`: 是否必须输入 `tenant_code`
+- `requires_admin_approval`: 当前账号是否处于待审批
+- `recommended_entry`: 推荐端（`web` / `mini-program`）
+- `login_state`: `ready` / `pending_approval` / `not_found`
+- `support_hint`: 支持侧统一排查话术
+
+## 用户与租户：`/users`、`/tenants`
+
+### `users`
+
+- `GET /users/me`
+- `GET /users/lawyers`
+- `POST /users/lawyers`
+- `POST /users/invite-lawyer`
+- `GET /users/pending`
+- `PATCH /users/{user_id}/approve`
+- `DELETE /users/{user_id}/reject`
+- `PATCH /users/{user_id}/status`
+- `GET /users`
+
+### `tenants`
+
+- `POST /tenants/personal`
+- `POST /tenants/organization`
+- `POST /tenants/join`
+- `GET /tenants/invite/{tenant_code}`
+- `GET /tenants/{tenant_id}/preview`
+- `GET /tenants/current`
+- `GET /tenants`
+- `PATCH /tenants/current`
+- `PATCH /tenants/{tenant_id}/status`
+- `GET /tenants/{tenant_id}/ai-budget`
+- `PATCH /tenants/{tenant_id}/ai-budget`
+- `GET /tenants/{tenant_id}/cases/{case_id}/ai-budget`
+- `PATCH /tenants/{tenant_id}/cases/{case_id}/ai-budget`
+- `PATCH /tenants/members/{user_id}/approve`
+
+## 案件与当事人：`/cases`、`/clients`
+
+### `cases`
+
+- `POST /cases`
+- `GET /cases`
+- `GET /cases/{case_id}`
+- `PATCH /cases/{case_id}`
+- `PATCH /cases/{case_id}/client-remark`
+- `PATCH /cases/{case_id}/lawyer-remark`
+- `GET /cases/{case_id}/invite-qrcode`
+
+### `clients`
+
+- `GET /clients`
+- `GET /clients/{client_id}`
+- `PATCH /clients/{client_id}`
+
+当前接口语义：
+
+- `client-remark` 面向当事人追加补充说明。
+- `lawyer-remark` 面向律师 / 机构管理员维护内部备注。
+- 案件详情返回字段会按角色裁剪。
 
-### 3.5 `PATCH /users/{user_id}/approve`
-- 失败：`404 USER_NOT_FOUND`
+## 文件、报告与语音：`/cases/*/files*`、`/files`、`/asr`
 
-### 3.6 `DELETE /users/{user_id}/reject`
-- 失败：`404 USER_NOT_FOUND`
+### 按案件范围
 
-### 3.7 `PATCH /users/{user_id}/status`
-- 失败：`404 USER_NOT_FOUND`
+- `GET /cases/{case_id}/files`
+- `POST /cases/{case_id}/files`
+- `GET /cases/{case_id}/files/upload-policy`
+- `POST /cases/{case_id}/files/complete-upload`
+- `GET /cases/{case_id}/reports`
+- `GET /cases/{case_id}/report/access-link`
+- `GET /cases/{case_id}/reports/{report_name}/access-link`
+- `GET /cases/{case_id}/reports/{report_name}`
+- `GET /cases/{case_id}/report`
 
----
+### 通用文件接口
 
-## 4. 案件（Cases）
+- `POST /files/upload`
+- `GET /files/upload-policy`
+- `POST /files/complete-upload`
+- `GET /files/case/{case_id}`
+- `GET /files/{file_id}/access-link`
+- `GET /files/{file_id}/download`
+- `GET /files/access/{token}`
+- `DELETE /files/{file_id}`
 
-### 4.1 `POST /cases`
-- 权限：`lawyer` / `tenant_admin`
-- 失败：`403 CASE_OPERATION_NOT_ALLOWED`
+### ASR
 
-### 4.2 `GET /cases`
-- 标准分页参数：`page`、`page_size`（`page>=1`，`1<=page_size<=100`）
-- 兼容分页参数：`skip`、`limit`（`skip>=0`，`1<=limit<=100`）
-- 同时传两组参数时：若不满足 `skip==(page-1)*page_size` 且 `limit==page_size`，返回 `400 VALIDATION_ERROR`
-- 可选筛选：`status`
-- 响应头：`X-Page`、`X-Page-Size`
+- `POST /asr/transcribe`
 
-### 4.3 `GET /cases/{case_id}`
-- 失败：`404 CASE_NOT_FOUND`、`403 CASE_ACCESS_DENIED`
+## AI、统计与通知：`/ai`、`/analytics`、`/stats`、`/notifications`
 
-### 4.4 `PATCH /cases/{case_id}`
-- 失败：
-  - `404 CASE_NOT_FOUND`
-  - `403 CASE_OPERATION_NOT_ALLOWED`
-  - `400/404 USER_NOT_FOUND`（指派律师不存在）
+### `ai`
 
-### 4.5 `GET /cases/{case_id}/invite-qrcode`
-- 失败：`403 CASE_OPERATION_NOT_ALLOWED`、`404 CASE_NOT_FOUND`
+- `POST /ai/cases/{case_id}/parse-document`
+- `GET /ai/cases/{case_id}/facts`
+- `POST /ai/cases/{case_id}/analyze`
+- `GET /ai/cases/{case_id}/analysis-results`
+- `POST /ai/cases/{case_id}/falsification`
+- `GET /ai/cases/{case_id}/falsification-results`
+- `GET /ai/tasks`
+- `GET /ai/tasks/{task_id}`
+- `POST /ai/tasks/{task_id}/retry`
 
----
+### `analytics`
 
-## 5. 文件（Files）
+- `GET /analytics/ai-usage`
+- `GET /analytics/prompts`
+- `GET /analytics/provider-settings`
 
-### 5.1 `POST /files/upload?case_id={id}`
-- multipart 字段名：`upload`
-- 失败：`CASE_NOT_FOUND`、`FILE_ACCESS_DENIED`、`FILE_UPLOAD_INVALID`
+### `stats`
 
-### 5.2 `GET /files/upload-policy`
-- 失败：`CASE_NOT_FOUND`、`FILE_ACCESS_DENIED`、`FILE_UPLOAD_INVALID`
+- `GET /stats/dashboard`
 
-### 5.3 `GET /files/case/{case_id}`
-- 失败：`CASE_NOT_FOUND`、`FILE_ACCESS_DENIED`
+### `notifications`
 
-### 5.4 `GET /files/{file_id}/access-link`
-- 失败：`FILE_NOT_FOUND`、`FILE_ACCESS_DENIED`
+- `GET /notifications`
+- `PATCH /notifications/{notification_id}/read`
 
-### 5.5 `GET /files/{file_id}/download`
-- 失败：`FILE_NOT_FOUND`、`FILE_ACCESS_DENIED`
+## 幂等与前端对齐要求
 
-### 5.6 `GET /files/access/{token}`
-- 失败：`400 FILE_TOKEN_INVALID`、`404 FILE_NOT_FOUND`
-
----
-
-## 6. AI（当前实现态）
-
-> 当前执行模型：请求内同步执行（返回 `202`，但非队列 worker 异步）。
-
-### 6.1 `POST /ai/cases/{case_id}/parse-document`
-- 请求体：`file_id`、`parse_options`
-- Header（可选）：`Idempotency-Key`
-- 成功：`202`，`{task_id, status, message}`
-- 失败：`FILE_NOT_FOUND`、`CASE_NOT_FOUND`、`CASE_ACCESS_DENIED`、`AI_OPERATION_NOT_ALLOWED`、`AI_TASK_CONFLICT`
-
-### 6.2 `GET /ai/cases/{case_id}/facts`
-- 查询参数：`fact_type`、`min_confidence`、`page`、`page_size`
-
-### 6.3 `POST /ai/cases/{case_id}/analyze`
-- Header（可选）：`Idempotency-Key`
-- 成功：`202`，`{task_id, status, estimated_time}`
-- 失败：`CASE_NOT_FOUND`、`CASE_ACCESS_DENIED`、`AI_OPERATION_NOT_ALLOWED`、`AI_TASK_CONFLICT`
-
-### 6.4 `GET /ai/cases/{case_id}/analysis-results`
-
-### 6.5 `POST /ai/cases/{case_id}/falsification`
-- Header（可选）：`Idempotency-Key`
-- 请求体：`analysis_id`、`challenge_modes`、`iteration_count`
-- 失败：`AI_ANALYSIS_NOT_FOUND`、`AI_OPERATION_NOT_ALLOWED`、`AI_TASK_CONFLICT`
-
-### 6.6 `GET /ai/cases/{case_id}/falsification-results`
-
-### 6.7 `GET /ai/tasks/{task_id}`
-- 失败：`AI_TASK_NOT_FOUND`、`AI_OPERATION_NOT_ALLOWED`
-
-### 6.8 `GET /ws/ai/tasks/{task_id}?token=<jwt>`
-- WS 鉴权已启用，按 JWT + 租户边界校验。
-
----
-
-## 7. 租户（Tenants）
-
-### 7.1 `POST /tenants/personal`
-- 失败：`409 USER_ALREADY_EXISTS`
-
-### 7.2 `POST /tenants/organization`
-- 失败：`409 USER_ALREADY_EXISTS`
-
-### 7.3 `POST /tenants/join`
-- 失败：`TENANT_NOT_FOUND`、`TENANT_INACTIVE`、`USER_ALREADY_EXISTS`
-
-### 7.4 `GET /tenants/invite/{tenant_code}`
-- 失败：`TENANT_NOT_FOUND`
-
-### 7.5 `GET /tenants/{tenant_id}/preview`
-- 失败：`TENANT_NOT_FOUND`
-
-### 7.6 `GET /tenants/current`
-- 失败：`TENANT_NOT_FOUND`
-
-### 7.7 `PATCH /tenants/current`
-- 失败：`TENANT_NOT_FOUND`
-
-### 7.8 `PATCH /tenants/members/{user_id}/approve`
-- 失败：`USER_NOT_FOUND`、`CONFLICT`
-
----
-
-## 8. 通知与统计
-
-### 8.1 `GET /notifications`
-
-### 8.2 `PATCH /notifications/{notification_id}/read`
-- 失败：`NOTIFICATION_NOT_FOUND`
-
-### 8.3 `GET /stats/dashboard`
-
----
-
-## 9. 健康检查与文档
-- `GET /api/v1/health`
-- `GET /api/v1/health/live`
-- `GET /api/v1/health/ready`
-- `GET /api/v1/openapi.json`
-
----
-
-## 10. 前端对齐关键点（当前必须遵循）
-- Web 案件详情：
-  - `GET /files/case/{case_id}`
-  - `PATCH /cases/{case_id}`
-  - `POST /files/upload?case_id={case_id}`（字段名 `upload`）
-  - `GET /cases/{case_id}/invite-qrcode`
-- Web 律师管理：
-  - `GET /users/lawyers`
-  - `POST /users/lawyers`
-  - `PATCH /users/{id}/approve`
-  - `DELETE /users/{id}/reject`
-- AI API：统一基于 `/api/v1` + `/ai/*`，禁止双前缀拼接。
+- AI 发起接口支持可选 `Idempotency-Key`。
+- Web 当前应把 AI 交互理解为“文档解析为主”，不要依赖已重定向的分析 / 证伪页面作为独立入口。
+- 当事人端只允许访问本人案件、本人可见文件与摘要结果。

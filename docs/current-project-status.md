@@ -3,7 +3,7 @@
 > 本文档是当前仓库的**单一状态真源**。  
 > 以后每次发生**优化、更新、修复、结构调整、验收结论变化**，都必须同步维护本文档。
 
-更新时间：`2026-04-01`（Asia/Shanghai）
+更新时间：`2026-04-02`（Asia/Shanghai）
 
 ## 1. 文档定位与维护规则
 
@@ -790,6 +790,77 @@
   - `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`：`PASS`
 - 状态结论：本地质量基线已恢复为全绿，后续可按既定顺序继续推进云资源、微信能力、真机验收与云端 E2E 放行项。
 
+### 6.34 2026-04-02 变更记录（新增工程落地作业单）
+
+- 变更类型：文档治理 + 执行收口
+- 变更摘要：
+  - 新增 `docs/release-execution-workorder.md`，将放行前基础设施、微信 / 真机联调、云端联调、放行门禁、上线后稳定期、稳定后切 `dev` 的执行顺序统一为单人作业单。
+  - 同步更新 `docs/README.md` 与 `docs/documentation-map.md`，使执行入口与文档索引对齐。
+  - 修正文档门禁暴露的现存历史文档索引缺失与编码不一致问题，恢复 `check-docs-integrity` 可用状态。
+- 影响范围：`docs`
+- 受影响目录：
+  - `docs/release-execution-workorder.md`
+  - `docs/README.md`
+  - `docs/documentation-map.md`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`：`PASS`
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`：`PASS`
+- 状态结论：当前执行口径已从“看状态文档自行拆解”升级为“状态真源 + 作业单并行”，后续单人推进放行与上线工作时可直接按作业单逐项执行。
+
+### 6.35 2026-04-02 变更记录（W12-T03 仓库内准备）
+
+- 变更类型：部署准备
+- 变更摘要：梳理 `deploy/backend.env.tencent.prod.example`、`docker-compose.prod.yml` 与部署 / 作业单文档的生产态需求，明确 `APP_ENV=production`、`AI_MOCK_MODE=false`、`BACKEND_CORS_ORIGINS` 与相应 Compose 环境变量的存在，并把仓库级关注点记录到当前状态真源。
+- 影响范围：`deploy` / `docs`
+- 受影响目录：
+  - `deploy/backend.env.tencent.prod.example`
+  - `docker-compose.prod.yml`
+  - `docs/production-deployment.md`
+  - `docs/release-execution-workorder.md`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - 逐文件审阅确认 `deploy/backend.env.tencent.prod.example` 包含 `APP_ENV=production`、`AI_MOCK_MODE=false` 与 `BACKEND_CORS_ORIGINS` 占位，`docker-compose.prod.yml` 的 `backend` / `ai-worker` service 均在 `environment` 中设定 `APP_ENV: production`，相关文档也同步说明如何保持该基线。
+- 状态结论：仓库内 W12-T03 所负责的生产态基线已收口，7/8 节中对 `W12-T03` 的阻塞说明仍旧成立，正式域名、HTTPS、COS / CORS 还需平台 / 云资源团队完成。
+
+### 6.36 2026-05-14 变更记录（健康检查修复）
+
+- 变更类型：修复 / 门禁
+- 变更摘要：
+  - 新增 `backend/pytest.ini`，限定后端全量测试只收集 `backend/tests`，避免 `backend/test_results.txt` 被 pytest 当成测试文件并因非 UTF-8 内容中断收集。
+  - 新增 `docs/health-repair-execution-2026-05-14.md`，记录本次健康修复的范围、执行步骤与验证命令。
+  - 同步更新 `docs/documentation-map.md`，使新增健康修复文档纳入文档完整性门禁。
+- 影响范围：`backend` / `docs`
+- 受影响目录：
+  - `backend/pytest.ini`
+  - `docs/health-repair-execution-2026-05-14.md`
+  - `docs/documentation-map.md`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`：`PASS`
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`：`PASS`
+  - `python scripts/check_mojibake.py`：`PASS`
+- 状态结论：健康检查暴露的文档门禁与 pytest 收集风险已纳入 docs/tooling 分支收口，正式上线阻塞项不变。
+
+### 6.37 2026-05-14 变更记录（混合工作区风险收口）
+
+- 变更类型：风险收口 / 分支治理
+- 变更摘要：
+  - 为混合工作区创建本地恢复快照，保留 tracked diff 与 untracked 文件压缩包。
+  - 将可独立审阅的 docs/tooling、backend A3、Web 结构迁移、小程序结构迁移拆成独立分支并推送到 GitHub。
+  - 新增 `docs/working-tree-risk-closure-2026-05-14.md`，记录已推送分支、验证证据、仍需本地处理的路径和后续顺序。
+- 影响范围：`docs` / `backend` / `web-frontend` / `mini-program`
+- 受影响目录：
+  - `docs/working-tree-risk-closure-2026-05-14.md`
+  - `docs/documentation-map.md`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `codex/chore-docs-tooling-and-deploy`：docs integrity、status-doc、mojibake 检查通过。
+  - `codex/backend-a3-ai-files-integrations`：`216 passed, 5 warnings`，边界检查通过。
+  - `codex/refactor-web-frontend-structure`：lint、`58 passed`、build 通过。
+  - `codex/refactor-mini-program-structure`：小程序静态审计 `17/17 passed`。
+- 状态结论：混合工作区的“丢失风险”和“不可审阅风险”已显著降低；`codex/ai-agent-rag-review` 仍保留为混合源分支，不建议直接开 PR。
+
 ## 7. 当前未完成事项
 
 ## 7.1 正式上线阻塞项（P0）
@@ -801,7 +872,7 @@
 
 ### 云资源与部署基线
 
-- `W12-T03`：真实 `CVM / 域名 / HTTPS` 未完成。
+- `W12-T03`：真实 `CVM / 域名 / HTTPS` 未完成（仓库内已把 `APP_ENV=production`、CORS 与 Compose 环境显式锁定，平台侧动作仍待执行）。
 - `W12-T04`：真实 `COS / CORS / 下载链路` 未完成。
 - `W12-T08`：小程序合法域名联调未完成。
 - `W12-V01 ~ W12-V06`：生产 compose、Web、API、COS、worker、report-service、小程序接口联调未完成。

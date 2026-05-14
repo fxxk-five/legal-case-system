@@ -1,63 +1,79 @@
-# 法律案件AI助手 - 系统架构与业务流程 (v4)
+﻿# 架构与接口蓝图
 
-## 1. 项目愿景
-本项目旨在为律师提供一个高效的案件管理与AI辅助分析平台。律师只需管理案件和查看结果，繁琐的材料解析、事实提取和证据核实由AI自动完成。
+## 运行时组成
 
-## 2. 核心业务流程
+- `web-frontend`：Web 管理台，面向超级管理员、机构管理员、律师。
+- `mini-program`：微信小程序，面向律师移动端与当事人端。
+- `backend`：统一 API 与业务中台。
+- `ai-worker`：消费 AI 任务队列。
+- `report-service`：报告渲染服务。
+- `postgres` + `redis`：持久化与缓存/辅助依赖。
 
-```mermaid
-sequenceDiagram
-    participant L as 律师 (Web/小程序)
-    participant C as 当事人 (小程序)
-    participant S as 系统后台
-    participant AI as AI/RAG系统
+## 当前代码结构
 
-    L->>S: 1. 新建案件 (填写信息)
-    L->>S: 2. 邀请当事人 (生成邀请码/链接)
-    Note over L, C: 律师通过微信发送邀请
-    C->>S: 3. 接受邀请并绑定案件
-    
-    rect rgb(240, 240, 240)
-        Note right of C: 材料上传与AI自动处理循环
-        C->>S: 4. 批量上传案件材料
-        S->>AI: 5. 自动触发向量化 (RAG)
-        S->>AI: 6. 自动执行AI三步走 (解析->分析->核实)
-        AI->>S: 7. 结果落库
-        S->>L: 8. 推送处理完成通知 (WS/站内信)
-    end
+### 后端
 
-    L->>S: 9. Web端直接查看AI分析结果
-```
+- 统一入口：`backend/app/main.py`
+- API 聚合：`backend/app/api/api_v1.py`
+- 业务模块：`backend/app/modules/*`
+  - `auth`
+  - `cases`
+  - `clients`
+  - `files`
+  - `ai`
+  - `analytics`
+  - `notifications`
+  - `asr`
+  - `tenants`
+  - `users`
+- 外部集成：`backend/app/integrations/*`
+  - `llm`
+  - `wechat`
+  - `storage`
+  - `sms`
+  - `report`
+  - `asr`
 
-## 3. 关键逻辑说明
+### Web
 
-### 3.1 律师端 (Web/小程序)
-- **管理导向**：律师负责创建案件、维护基本信息、管理当事人。
-- **结果导向**：Web端主要用于展示AI分析后的结构化数据（事实清单、法律分析、证据核实结果），律师无需手动点击“开始分析”。
-- **邀请机制**：律师新建案件后，系统生成邀请凭证，预留微信邀请入口。
+- 入口：`web-frontend/src/app/App.vue`
+- 路由：`web-frontend/src/app/router/index.js`
+- 页面：`web-frontend/src/pages/*`
+- 结构目标：`app / pages / features / entities / shared`
 
-### 3.2 当事人端 (小程序)
-- **便捷上传**：当事人通过微信小程序进入案件，支持图片、文档的批量上传。
-- **增量上传**：支持多次上传。每次批量上传完成后，系统都会自动触发新一轮的AI分析，确保结果是最新的。
+### 小程序
 
-### 3.3 AI 自动化流水线
-- **上传即触发**：系统监听文件上传完成事件。
-- **流水线作业**：
-    1. **向量化**：文件进入RAG系统进行切片和向量化。
-    2. **AI解析**：提取文件中的关键事实。
-    3. **AI分析**：基于提取的事实进行法律风险分析。
-    4. **AI核实**：对事实进行交叉验证和证伪。
-- **异步处理**：所有AI操作均为异步执行，通过WebSocket实时推送进度。
+- 页面配置：`mini-program/pages.json`
+- 页面：`mini-program/pages/*`
+- 公共层：`mini-program/features`、`mini-program/entities`、`mini-program/shared`
 
-## 4. 接口架构调整
+## 核心业务链路
 
-### 4.1 文件上传接口 (改造)
-- `POST /api/v1/files/upload`
-- **新增逻辑**：支持标记“批量上传结束”。当收到结束信号或上传完成后，后台自动启动AI流水线。
+1. 用户登录并按角色进入对应工作台。
+2. 律师或机构管理员创建案件。
+3. 当事人通过邀请进入小程序并上传材料。
+4. 文件进入案件上下文并触发 AI 任务。
+5. `ai-worker` 消费任务，结果回写到案件与报告。
+6. 律师查看完整结果；当事人只看摘要和本人可见内容。
 
-### 4.2 AI 任务接口 (简化)
-- 律师不再需要调用 `POST /api/v1/ai/cases/{id}/analyze` 等触发类接口。
-- 接口保留用于系统内部调用或手动重试。
+## 接口域划分
 
----
-*本文档为系统核心逻辑的真源，所有开发工作应以此流程为准。*
+- 认证与会话：`/api/v1/auth/*`
+- 租户与用户：`/api/v1/tenants/*`、`/api/v1/users/*`
+- 案件与当事人：`/api/v1/cases/*`、`/api/v1/clients/*`
+- 文件与报告：`/api/v1/files/*`、`/api/v1/cases/{id}/files*`、`/api/v1/cases/{id}/report*`
+- AI 与进度：`/api/v1/ai/*`、`/ws/ai/tasks/{task_id}`
+- 统计与通知：`/api/v1/stats/*`、`/api/v1/analytics/*`、`/api/v1/notifications/*`
+
+## 当前前端边界
+
+- Web `/analysis` 当前重定向到 `overview`。
+- Web `cases/:id/ai/analyze` 与 `cases/:id/ai/falsify` 当前都重定向到文档解析页。
+- 当事人 Web 端不提供业务工作台，只显示“小程序使用提示页”。
+- 个人工作区律师仅保留案件相关入口。
+
+## 生产部署边界
+
+- 当前生产基线使用 `docker-compose.prod.yml`。
+- 对外仅开放 `80/443`。
+- 文件真源使用 `COS`，AI 任务使用数据库队列 + `ai-worker`。
