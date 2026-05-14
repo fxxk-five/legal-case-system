@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="page-container fade-in workspace-page">
     <view class="card page-hero">
       <text class="page-hero-title">当事人管理</text>
@@ -105,17 +105,17 @@
 
 <script>
 import WorkspaceTabBar from "../../components/WorkspaceTabBar.vue";
-import { buildWorkspaceCaseDetailUrl, buildWorkspaceClientDetailUrl, getWorkspaceModuleUrl } from "../../common/role-routing";
+import { buildWorkspaceCaseDetailUrl, buildWorkspaceClientDetailUrl, getWorkspaceModuleUrl } from "../../features/auth/role-routing";
 import {
-  formatCaseStatus,
   formatDateTime,
   formatLegalType,
   formatText,
   getDeadlineReminder,
-} from "../../common/display";
-import { buildQuery, get, patch } from "../../common/http";
-import { friendlyError, showFormError, validateName, validatePhone } from "../../common/form";
-import { ensureWorkspaceAccess } from "../../common/workspace";
+} from "../../shared/lib/display";
+import { resolveCaseStage } from "../../entities/case/policy";
+import { buildQuery, get, patch } from "../../shared/api/http";
+import { friendlyError, showFormError, validateName, validatePhone } from "../../shared/lib/form";
+import { ensureWorkspaceAccess } from "../../features/workspace/workspace";
 
 const SORT_OPTIONS = [
   { label: "按创建时间（最新）", value: "created_at_desc" },
@@ -197,10 +197,11 @@ export default {
     },
     decorateCase(item) {
       const reminder = getDeadlineReminder(item);
+      const stage = resolveCaseStage(item);
       return {
         ...item,
         legal_type_text: formatLegalType(item.legal_type),
-        status_text: formatCaseStatus(item.status),
+        status_text: stage.label,
         lawyer_name: formatText(item.assigned_lawyer_name, "未分配"),
         deadline_text: formatDateTime(item.deadline, "未设置"),
         updated_at_text: formatDateTime(item.updated_at, "-"),
@@ -354,3 +355,5 @@ export default {
   margin-top: 18rpx;
 }
 </style>
+
+

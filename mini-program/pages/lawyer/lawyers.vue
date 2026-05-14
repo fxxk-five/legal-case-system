@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <view class="page-container fade-in workspace-page">
     <view class="card page-hero">
       <text class="page-hero-title">律师管理</text>
@@ -147,11 +147,11 @@
 
 <script>
 import WorkspaceTabBar from "../../components/WorkspaceTabBar.vue";
-import { formatRole } from "../../common/display";
-import { del, get, patch, post } from "../../common/http";
-import { friendlyError, showFormError } from "../../common/form";
-import { buildLoginPageUrl, buildWorkspaceLawyerDetailUrl, getWorkspaceModuleUrl } from "../../common/role-routing";
-import { ensureWorkspaceAccess } from "../../common/workspace";
+import { formatRole } from "../../shared/lib/display";
+import { del, get, patch, post } from "../../shared/api/http";
+import { friendlyError, showFormError } from "../../shared/lib/form";
+import { buildLoginPageUrl, buildWorkspaceLawyerDetailUrl, getWorkspaceModuleUrl } from "../../features/auth/role-routing";
+import { ensureWorkspaceAccess } from "../../features/workspace/workspace";
 
 function statusText(status) {
   const normalized = Number(status);
@@ -407,3 +407,5 @@ export default {
   width: 100%;
 }
 </style>
+
+

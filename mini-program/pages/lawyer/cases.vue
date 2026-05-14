@@ -68,21 +68,21 @@
 
 <script>
 import WorkspaceTabBar from "../../components/WorkspaceTabBar.vue";
-import { buildCreateCaseUrl, buildWorkspaceCaseDetailUrl } from "../../common/role-routing";
+import { buildCreateCaseUrl, buildWorkspaceCaseDetailUrl } from "../../features/auth/role-routing";
 import {
   CASE_SORT_OPTIONS,
   CASE_STATUS_OPTIONS,
   LEGAL_TYPE_OPTIONS,
   formatAnalysisStatus,
-  formatCaseStatus,
   formatDateTime,
   formatLegalType,
   formatText,
   getDeadlineReminder,
-} from "../../common/display";
-import { get } from "../../common/http";
-import { friendlyError, showFormError } from "../../common/form";
-import { ensureWorkspaceAccess } from "../../common/workspace";
+} from "../../shared/lib/display";
+import { resolveCaseStage } from "../../entities/case/policy";
+import { get } from "../../shared/api/http";
+import { friendlyError, showFormError } from "../../shared/lib/form";
+import { ensureWorkspaceAccess } from "../../features/workspace/workspace";
 
 export default {
   components: {
@@ -151,10 +151,11 @@ export default {
   methods: {
     buildCaseItem(item) {
       const reminder = getDeadlineReminder(item);
+      const stage = resolveCaseStage(item);
       return {
         ...item,
         client_name: formatText(item.client ? item.client.real_name : "", "-"),
-        status_text: formatCaseStatus(item.status),
+        status_text: stage.label,
         legal_type_text: formatLegalType(item.legal_type),
         deadline_text: formatDateTime(item.deadline, "-"),
         analysis_text: formatAnalysisStatus(item.analysis_status, item.analysis_progress),
@@ -252,3 +253,5 @@ export default {
   min-width: 0;
 }
 </style>
+
+

@@ -13,6 +13,12 @@
       }
     },
     {
+      "path": "pages/common/force-reset-password",
+      "style": {
+        "navigationBarTitleText": "\u4fee\u6539\u5bc6\u7801"
+      }
+    },
+    {
       "path": "pages/lawyer/home",
       "style": {
         "navigationBarTitleText": "\u6982\u89c8"

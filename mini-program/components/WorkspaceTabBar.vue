@@ -16,8 +16,8 @@
 </template>
 
 <script>
-import { getCurrentUser } from "../common/session";
-import { buildWorkspaceMenu, openWorkspacePage } from "../common/workspace";
+import { getCurrentUser } from "../features/auth/session";
+import { buildWorkspaceMenu, openWorkspacePage } from "../features/workspace/workspace";
 
 export default {
   name: "WorkspaceTabBar",
@@ -107,3 +107,5 @@ export default {
   color: #1d1d1f;
 }
 </style>
+
+

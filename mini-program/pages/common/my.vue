@@ -44,11 +44,11 @@
 <script>
 import ClientTabBar from "../../components/ClientTabBar.vue";
 import WorkspaceTabBar from "../../components/WorkspaceTabBar.vue";
-import { clearSession, setUserInfo } from "../../common/auth";
-import { formatRole, formatTenantType, formatText } from "../../common/display";
-import { friendlyError, showFormError } from "../../common/form";
-import { get, logoutByServer } from "../../common/http";
-import { getCurrentUser, logoutAndRedirect, redirectByRole, requireLogin } from "../../common/session";
+import { clearSession, setUserInfo } from "../../features/auth/auth";
+import { formatRole, formatTenantType, formatText } from "../../shared/lib/display";
+import { friendlyError, showFormError } from "../../shared/lib/form";
+import { get, logoutByServer } from "../../shared/api/http";
+import { getCurrentUser, logoutAndRedirect, redirectByRole, requireLogin } from "../../features/auth/session";
 
 export default {
   components: {
@@ -112,13 +112,22 @@ export default {
         }
         setUserInfo(this.user);
       } catch (error) {
-        showFormError(friendlyError(error, "加载我的信息失败"));
+        // 401 由 http 层的 handleUnauthorized 自动处理（重定向到登录页）
+        // 只对非 401 错误显示 toast
+        const status = error?.response?.status || error?.statusCode;
+        if (status !== 401) {
+          showFormError(friendlyError(error, "加载我的信息失败"));
+        }
       } finally {
         this.loading = false;
       }
     },
-    goHome() {
-      redirectByRole(this.user || getCurrentUser());
+    async goHome() {
+      try {
+        await redirectByRole(this.user || getCurrentUser());
+      } catch {
+        showFormError("跳转失败，请重试");
+      }
     },
     async handleLogout() {
       const confirmed = await new Promise((resolve) => {
@@ -163,3 +172,4 @@ export default {
   color: #d70015;
 }
 </style>
+

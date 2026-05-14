@@ -1,6 +1,6 @@
-import { config } from "./config";
-import { getAccessToken } from "./auth";
-import { get } from "./http";
+import { config } from "../../shared/config";
+import { getAccessToken } from "../../features/auth/auth";
+import { casesApi, filesApi } from "../api/domain-api";
 
 function buildHeaders() {
   const token = getAccessToken();
@@ -19,7 +19,7 @@ function buildApiUrl(path) {
 }
 
 async function buildFileUrl(file) {
-  const access = await get(`/files/${file.id}/access-link`);
+  const access = await filesApi.getFileAccessLink(file.id);
   if (access.access_url.startsWith("http")) {
     return access.access_url;
   }
@@ -27,7 +27,7 @@ async function buildFileUrl(file) {
 }
 
 async function buildLatestReportUrl(caseId) {
-  const access = await get(`/cases/${caseId}/report/access-link`);
+  const access = await casesApi.getLatestReportAccessLink(caseId);
   if (access.access_url.startsWith("http")) {
     return access.access_url;
   }
@@ -35,8 +35,7 @@ async function buildLatestReportUrl(caseId) {
 }
 
 async function buildReportVersionUrl(caseId, reportName) {
-  const safeReportName = encodeURIComponent(reportName);
-  const access = await get(`/cases/${caseId}/reports/${safeReportName}/access-link`);
+  const access = await casesApi.getReportVersionAccessLink(caseId, reportName);
   if (access.access_url.startsWith("http")) {
     return access.access_url;
   }

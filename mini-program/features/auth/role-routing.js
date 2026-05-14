@@ -4,9 +4,10 @@ import {
   isTenantAdmin,
   isUserApproved,
   isWorkspaceRole,
-} from "./display";
+} from "../../shared/lib/display";
 
 export const LOGIN_PAGE = "/pages/login/index";
+export const FORCE_RESET_PASSWORD_PAGE = "/pages/common/force-reset-password";
 export const LOGIN_STATUS_PENDING_APPROVAL = "pending-approval";
 export const LOGIN_STATUS_ACCESS_RESTRICTED = "access-restricted";
 export const ORG_WORKSPACE_HOME_PAGE = "/pages/lawyer/home";
@@ -58,6 +59,10 @@ export function buildLoginPageUrl(token = "", scene = "", loginStatus = "") {
     scene: scene || undefined,
     status: loginStatus || undefined,
   });
+}
+
+export function buildForceResetPasswordUrl(query = {}) {
+  return buildPageUrl(FORCE_RESET_PASSWORD_PAGE, query);
 }
 
 export function getWorkspaceMenuItems(user = getUserInfo()) {
@@ -144,6 +149,10 @@ export function resolveUserHomeUrl(user, cases = []) {
     return LOGIN_PAGE;
   }
 
+  if (Boolean(user.must_reset_password)) {
+    return buildForceResetPasswordUrl();
+  }
+
   const loginStatus = getLoginStatusForUser(user);
   if (loginStatus) {
     return buildLoginPageUrl("", "", loginStatus);
@@ -172,6 +181,13 @@ export function getWorkspaceAccessResult(user, options = {}) {
     return {
       ok: false,
       message: "\u5f53\u524d\u8d26\u53f7\u6b63\u5728\u7b49\u5f85\u5ba1\u6279\u3002",
+    };
+  }
+
+  if (Boolean(user.must_reset_password)) {
+    return {
+      ok: false,
+      message: "当前账号需先修改密码后才能继续使用。",
     };
   }
 
@@ -204,6 +220,13 @@ export function getClientAccessResult(user) {
     return {
       ok: false,
       message: "\u5f53\u524d\u8d26\u53f7\u6b63\u5728\u7b49\u5f85\u5ba1\u6279\u3002",
+    };
+  }
+
+  if (Boolean(user.must_reset_password)) {
+    return {
+      ok: false,
+      message: "当前账号需先修改密码后才能继续使用。",
     };
   }
 

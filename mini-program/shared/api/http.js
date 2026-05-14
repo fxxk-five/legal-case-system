@@ -1,28 +1,13 @@
-import { config } from "./config";
-import { clearSession, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from "./auth";
-import { LOGIN_PAGE } from "./role-routing";
-
-const STATUS_CODE_MAP = {
-  400: "VALIDATION_ERROR",
-  401: "AUTH_REQUIRED",
-  403: "FORBIDDEN",
-  404: "RESOURCE_NOT_FOUND",
-  409: "CONFLICT",
-  413: "PAYLOAD_TOO_LARGE",
-  415: "UNSUPPORTED_MEDIA_TYPE",
-  422: "VALIDATION_ERROR",
-  500: "INTERNAL_ERROR",
-  502: "EXTERNAL_SERVICE_ERROR",
-  503: "EXTERNAL_SERVICE_ERROR",
-  429: "CONFLICT",
-  504: "EXTERNAL_SERVICE_ERROR",
-};
-
-const STATUS_MESSAGE_MAP = {
-  413: "上传文件过大，请压缩后重试。",
-  415: "文件格式不受支持，请更换文件后重试。",
-  429: "请求过于频繁，请稍后再试。",
-};
+import { config } from "../../shared/config";
+import {
+  NETWORK_ERROR_MESSAGE,
+  REQUEST_FAILED_MESSAGE,
+  resolveFriendlyErrorFromPayload,
+  STATUS_CODE_MESSAGES,
+} from "../../shared/lib/form";
+import { clearSession, getAccessToken, getRefreshToken, setAccessToken, setRefreshToken } from "../../features/auth/auth";
+import { LOGIN_PAGE } from "../../features/auth/role-routing";
+import { STATUS_CODE_MAP } from "./statusCodeMap";
 
 const STATUS_ALIAS = {
   queued: "pending",
@@ -113,34 +98,55 @@ function normalizeTaskStatus(status) {
   return STATUS_ALIAS[status] || status;
 }
 
+function createClientValidationError(message, code = "VALIDATION_ERROR") {
+  return {
+    code,
+    message,
+    detail: message,
+    status_code: 400,
+    request_id: "",
+    userMessage: message,
+  };
+}
+
 function normalizeErrorPayload(payload, statusCode = 0) {
-  const fallbackCode = STATUS_CODE_MAP[statusCode] || "INTERNAL_ERROR";
+  const fallbackCode = statusCode ? (STATUS_CODE_MAP[statusCode] || "INTERNAL_ERROR") : "";
+  const fallbackMessage = statusCode
+    ? STATUS_CODE_MESSAGES[statusCode] || REQUEST_FAILED_MESSAGE
+    : NETWORK_ERROR_MESSAGE;
 
   if (!payload || typeof payload !== "object") {
-    const fallbackMessage = statusCode
-      ? STATUS_MESSAGE_MAP[statusCode] || "请求失败。"
-      : "网络连接失败，请稍后重试。";
     return {
       code: fallbackCode,
       message: fallbackMessage,
       detail: fallbackMessage,
       status_code: statusCode,
+      request_id: "",
+      userMessage: statusCode > 0 ? fallbackMessage : "",
     };
   }
 
   const message =
     (typeof payload.message === "string" && payload.message.trim()) ||
     (typeof payload.detail === "string" && payload.detail.trim()) ||
-    STATUS_MESSAGE_MAP[statusCode] ||
-    "请求失败。";
+    (typeof payload.errMsg === "string" && payload.errMsg.trim()) ||
+    fallbackMessage;
 
-  return {
+  const normalized = {
     ...payload,
     code: payload.code || fallbackCode,
     message,
-    detail: payload.detail || message,
-    status_code: statusCode,
+    detail: payload.detail || payload.errMsg || message,
+    status_code: statusCode || payload.status_code || payload.statusCode || 0,
+    request_id: payload.request_id || payload.requestId || "",
   };
+
+  normalized.userMessage =
+    normalized.status_code > 0
+      ? resolveFriendlyErrorFromPayload(normalized, fallbackMessage, normalized.status_code)
+      : "";
+
+  return normalized;
 }
 
 function handleUnauthorized() {
@@ -268,6 +274,15 @@ export function loginByPassword(data) {
   return post("/auth/login", data);
 }
 
+export function fetchLoginAdvice(data) {
+  return post("/auth/login-advice", data, { _skipRefresh: true });
+}
+
+export function loginBySmsCode(data) {
+
+  return post("/auth/sms-login", data);
+}
+
 export function wxMiniLogin(data) {
   return post("/auth/wx-mini-login", data, { _skipRefresh: true });
 }
@@ -308,6 +323,10 @@ export async function logoutByServer() {
   }
 }
 
+export function changePassword(data) {
+  return post("/auth/password", data);
+}
+
 export function inviteRegister(data) {
   return post("/auth/invite-register", data);
 }
@@ -317,7 +336,7 @@ export function upload(url, filePath, name = "upload", formData = {}, options = 
   const skipRefresh = Boolean(options._skipRefresh);
 
   return new Promise((resolve, reject) => {
-    uni.uploadFile({
+    const uploadTask = uni.uploadFile({
       url: resolveApiUrl(url),
       filePath,
       name,
@@ -361,6 +380,24 @@ export function upload(url, filePath, name = "upload", formData = {}, options = 
       },
       fail: (error) => reject(normalizeErrorPayload(error, 0)),
     });
+
+    if (typeof options.onTaskReady === "function") {
+      try {
+        options.onTaskReady(uploadTask);
+      } catch {
+        // Ignore callback errors to keep upload flow stable.
+      }
+    }
+
+    if (typeof options.onProgress === "function" && uploadTask && typeof uploadTask.onProgressUpdate === "function") {
+      uploadTask.onProgressUpdate((event) => {
+        try {
+          options.onProgress(event);
+        } catch {
+          // Ignore callback errors to keep upload flow stable.
+        }
+      });
+    }
   });
 }
 
@@ -517,9 +554,12 @@ function normalizeFalsification(item = {}) {
 }
 
 function withIdempotencyHeaders(headers = {}, key) {
+  if (!key) {
+    throw createClientValidationError("请求缺少幂等键，请稍后重试。");
+  }
   return {
     ...headers,
-    "Idempotency-Key": key || createIdempotencyKey(),
+    "Idempotency-Key": key,
   };
 }
 

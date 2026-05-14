@@ -1,5 +1,5 @@
-import { config } from "./config";
-import { getAccessToken } from "./auth";
+import { config } from "../../shared/config";
+import { getAccessToken } from "../auth/auth";
 
 const STATUS_ALIAS = {
   queued: "pending",
@@ -8,13 +8,33 @@ const STATUS_ALIAS = {
   error: "failed",
 };
 
-const TERMINAL_STATUS = new Set(["completed", "failed"]);
+const TERMINAL_STATUS = new Set(["completed", "failed", "dead"]);
+const FEEDBACK_STORAGE_PREFIX = "mini_ai_task_feedback_2026_03_25_v1";
 
 function normalizeTaskStatus(status) {
-  if (!status) {
+  const normalized = String(status || "").trim().toLowerCase();
+  if (!normalized) {
     return "pending";
   }
-  return STATUS_ALIAS[status] || status;
+  return STATUS_ALIAS[normalized] || normalized;
+}
+
+function normalizeCaseId(caseId) {
+  const parsed = Number(caseId || 0);
+  return Number.isFinite(parsed) && parsed > 0 ? Math.round(parsed) : 0;
+}
+
+function normalizeTaskType(taskType) {
+  return String(taskType || "").trim().toLowerCase();
+}
+
+function buildFeedbackStorageKey({ caseId, taskType } = {}) {
+  const normalizedCaseId = normalizeCaseId(caseId);
+  const normalizedTaskType = normalizeTaskType(taskType);
+  if (!normalizedCaseId || !normalizedTaskType) {
+    return "";
+  }
+  return `${FEEDBACK_STORAGE_PREFIX}:${normalizedCaseId}:${normalizedTaskType}`;
 }
 
 export function normalizeTask(task = {}) {
@@ -28,23 +48,83 @@ export function normalizeTask(task = {}) {
   };
 }
 
+export function savePageTaskFeedback({ caseId, taskType, task } = {}) {
+  const runtimeUni = typeof uni === "undefined" ? null : uni;
+  const key = buildFeedbackStorageKey({ caseId, taskType });
+  if (!key || !task || typeof runtimeUni?.setStorageSync !== "function") {
+    return false;
+  }
+
+  const normalizedTask = normalizeTask(task);
+  try {
+    runtimeUni.setStorageSync(key, {
+      task_id: normalizedTask.task_id || "",
+      status: normalizedTask.status,
+      progress: normalizedTask.progress,
+      message: normalizedTask.message || "",
+      error_message: normalizedTask.error_message || null,
+      case_id: normalizeCaseId(normalizedTask.case_id || caseId),
+      task_type: normalizeTaskType(normalizedTask.task_type || taskType),
+      updated_at: Date.now(),
+    });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function loadPageTaskFeedback({ caseId, taskType } = {}) {
+  const runtimeUni = typeof uni === "undefined" ? null : uni;
+  const key = buildFeedbackStorageKey({ caseId, taskType });
+  if (!key || typeof runtimeUni?.getStorageSync !== "function") {
+    return null;
+  }
+
+  try {
+    const stored = runtimeUni.getStorageSync(key);
+    if (!stored || typeof stored !== "object") {
+      return null;
+    }
+    if (!String(stored.task_id || "").trim()) {
+      return null;
+    }
+    return normalizeTask(stored);
+  } catch {
+    return null;
+  }
+}
+
+export function clearPageTaskFeedback({ caseId, taskType } = {}) {
+  const runtimeUni = typeof uni === "undefined" ? null : uni;
+  const key = buildFeedbackStorageKey({ caseId, taskType });
+  if (!key || typeof runtimeUni?.removeStorageSync !== "function") {
+    return false;
+  }
+
+  try {
+    runtimeUni.removeStorageSync(key);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function getTaskStatusText(status) {
+  const normalizedStatus = normalizeTaskStatus(status);
   const map = {
     pending: "排队中",
-    queued: "排队中",
     processing: "执行中",
-    running: "执行中",
+    retrying: "重试中",
     completed: "成功",
-    success: "成功",
     failed: "失败",
-    error: "失败",
+    dead: "终止（死信）",
   };
-  return map[status] || "处理中";
+  return map[normalizedStatus] || "处理中";
 }
 
 function buildWsUrl(taskId, since = "") {
   const token = getAccessToken();
-  const httpBase = config.apiBaseUrl || "http://127.0.0.1:8000/api/v1";
+  const httpBase = config.apiBaseUrl;
   const wsBase = httpBase.replace(/^http:/i, "ws:").replace(/^https:/i, "wss:").replace(/\/api\/v1\/?$/i, "");
 
   const query = [];
@@ -59,7 +139,12 @@ function buildWsUrl(taskId, since = "") {
   return `${wsBase}/ws/ai/tasks/${encodeURIComponent(taskId)}${suffix}`;
 }
 
-function inferStatusFromEvent(type, progress) {
+function inferStatusFromEvent(type, progress, payloadStatus = "") {
+  const normalizedPayloadStatus = normalizeTaskStatus(payloadStatus);
+  if (normalizedPayloadStatus && normalizedPayloadStatus !== "pending") {
+    return normalizedPayloadStatus;
+  }
+
   if (type === "completed") {
     return "completed";
   }
@@ -124,7 +209,7 @@ export function createAITaskTracker(options = {}) {
     if (task.status === "completed" && typeof options.onCompleted === "function") {
       options.onCompleted(task);
     }
-    if (task.status === "failed" && typeof options.onFailed === "function") {
+    if ((task.status === "failed" || task.status === "dead") && typeof options.onFailed === "function") {
       options.onFailed(task);
     }
   }
@@ -183,12 +268,13 @@ export function createAITaskTracker(options = {}) {
     }
 
     const progress = Number(payload.progress ?? 0);
-    const status = inferStatusFromEvent(payload.type, Number.isNaN(progress) ? 0 : progress);
+    const normalizedProgress = Number.isNaN(progress) ? 0 : progress;
+    const status = inferStatusFromEvent(payload.type, normalizedProgress, payload.status);
 
     applyTaskPatch(
       {
         status,
-        progress,
+        progress: normalizedProgress,
         message: payload.message || payload.error || "",
         error_message: payload.error || null,
       },

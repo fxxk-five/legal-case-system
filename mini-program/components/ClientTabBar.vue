@@ -16,7 +16,7 @@
 </template>
 
 <script>
-import { buildClientMenu, openWorkspacePage } from "../common/workspace";
+import { buildClientMenu, openWorkspacePage } from "../features/workspace/workspace";
 
 export default {
   name: "ClientTabBar",
@@ -102,3 +102,4 @@ export default {
   color: #1d1d1f;
 }
 </style>
+
