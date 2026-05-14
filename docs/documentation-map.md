@@ -27,6 +27,7 @@
 - `docs/branching-model.md`
 - `docs/commit-notes-972ae26.md`
 - `docs/project-git-workflow.md`
+- `docs/health-repair-execution-2026-05-14.md`
 - `docs/superpowers/plans/2026-04-13-branch-split-execution.md`
 - `docs/superpowers/specs/2026-03-29-copy-fix-scan-design.md`
 

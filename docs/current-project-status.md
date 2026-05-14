@@ -823,6 +823,25 @@
   - 逐文件审阅确认 `deploy/backend.env.tencent.prod.example` 包含 `APP_ENV=production`、`AI_MOCK_MODE=false` 与 `BACKEND_CORS_ORIGINS` 占位，`docker-compose.prod.yml` 的 `backend` / `ai-worker` service 均在 `environment` 中设定 `APP_ENV: production`，相关文档也同步说明如何保持该基线。
 - 状态结论：仓库内 W12-T03 所负责的生产态基线已收口，7/8 节中对 `W12-T03` 的阻塞说明仍旧成立，正式域名、HTTPS、COS / CORS 还需平台 / 云资源团队完成。
 
+### 6.36 2026-05-14 变更记录（健康检查修复）
+
+- 变更类型：修复 / 门禁
+- 变更摘要：
+  - 新增 `backend/pytest.ini`，限定后端全量测试只收集 `backend/tests`，避免 `backend/test_results.txt` 被 pytest 当成测试文件并因非 UTF-8 内容中断收集。
+  - 新增 `docs/health-repair-execution-2026-05-14.md`，记录本次健康修复的范围、执行步骤与验证命令。
+  - 同步更新 `docs/documentation-map.md`，使新增健康修复文档纳入文档完整性门禁。
+- 影响范围：`backend` / `docs`
+- 受影响目录：
+  - `backend/pytest.ini`
+  - `docs/health-repair-execution-2026-05-14.md`
+  - `docs/documentation-map.md`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`：`PASS`
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`：`PASS`
+  - `python scripts/check_mojibake.py`：`PASS`
+- 状态结论：健康检查暴露的文档门禁与 pytest 收集风险已纳入 docs/tooling 分支收口，正式上线阻塞项不变。
+
 ## 7. 当前未完成事项
 
 ## 7.1 正式上线阻塞项（P0）
