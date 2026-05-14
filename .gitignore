@@ -21,6 +21,16 @@ deploy/backend.env.tencent.staging
 # Local storage
 backend/storage/
 
+# Local runtime artifacts
+.runtime/
+backend/.runtime/
+tmp/
+backend/test_results.txt
+
+# Local agent/editor state
+.claude/settings.local.json
+.codebuddy/
+
 # TLS certificates (keep placeholder only)
 deploy/nginx/certs/*
 !deploy/nginx/certs/.gitkeep

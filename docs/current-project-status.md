@@ -878,6 +878,21 @@
   - `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`：`PASS`
 - 状态结论：文档入口、状态真源、上线作业单、部署说明、用户手册、API/架构契约与总蓝图保留；临时留痕不再作为仓库常驻文档。
 
+### 6.39 2026-05-14 变更记录（本地运行产物忽略规则）
+
+- 变更类型：工程治理
+- 变更摘要：
+  - 将 `.runtime/`、`backend/.runtime/`、`tmp/`、`backend/test_results.txt`、`.claude/settings.local.json`、`.codebuddy/` 纳入 `.gitignore`。
+  - 目标是让验证脚本、AI 工具、本地测试结果和本地 agent 配置不再污染工作区状态。
+- 影响范围：`.gitignore` / 本地开发状态
+- 受影响目录：
+  - `.gitignore`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`：`PASS`
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`：`PASS`
+- 状态结论：本地工作区清理后，常见临时产物不会再次进入 `git status` 未跟踪列表。
+
 ## 7. 当前未完成事项
 
 ## 7.1 正式上线阻塞项（P0）
