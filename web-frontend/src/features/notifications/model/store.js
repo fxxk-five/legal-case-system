@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 
-import http from '../lib/http'
+import http from '../../../shared/api/http.js'
 
 export const useNotificationStore = defineStore('notifications', {
   state: () => ({

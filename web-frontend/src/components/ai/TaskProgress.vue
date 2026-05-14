@@ -4,7 +4,7 @@
       <div class="flex items-center gap-3">
         <div :class="[
           'w-2 h-2 rounded-full',
-          status === 'processing' || status === 'running' ? 'bg-blue-400 animate-pulse' : statusColorClass
+          isInFlight ? 'bg-blue-400 animate-pulse' : statusColorClass
         ]"></div>
         <span class="text-sm font-semibold text-gray-700">{{ displayMessage }}</span>
       </div>
@@ -37,9 +37,16 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { RefreshCwIcon } from 'lucide-vue-next'
-import { useAITask } from '@/composables/useAITask'
-import { useAIStore } from '@/stores/ai'
-import { useAuthStore } from '@/stores/auth'
+import { useAITask } from '@/features/ai-tasks/model/useAITask'
+import { useAIStore } from '@/features/ai-tasks/model/store'
+import { useAuthStore } from '@/features/auth/model/store'
+import {
+  getAITaskStatusText,
+  isAITaskFailed,
+  isAITaskInFlight,
+  isAITaskSucceeded,
+  normalizeAITaskStatus,
+} from '@/features/ai-tasks/model/trackingPolicy'
 
 const props = defineProps({
   taskId: {
@@ -69,45 +76,41 @@ const normalizedProgress = computed(() => {
   return Math.max(0, Math.min(100, Math.round(value)))
 })
 
+const normalizedStatus = computed(() => normalizeAITaskStatus(status.value))
+
 const canRetry = computed(() => {
   if (!props.allowRetry) return false
   if (!authStore.canUseAI) return false
-  return status.value === 'failed'
+  return normalizedStatus.value === 'failed'
 })
 
 const displayMessage = computed(() => {
   if (message.value) return message.value
   if (connecting.value && !message.value) return '进度通道连接中...'
-  return getStatusText(status.value)
+  return getAITaskStatusText(normalizedStatus.value)
 })
 
 const statusColorClass = computed(() => {
-  switch (status.value) {
-    case 'completed':
-    case 'success':
-      return 'bg-green-500'
-    case 'failed':
-    case 'error':
-      return 'bg-red-500'
-    case 'pending':
-    case 'queued':
-      return 'bg-orange-400'
-    default:
-      return 'bg-[#007AFF]'
+  if (isAITaskSucceeded(normalizedStatus.value)) {
+    return 'bg-green-500'
   }
+  if (isAITaskFailed(normalizedStatus.value)) {
+    return 'bg-red-500'
+  }
+  if (normalizedStatus.value === 'pending') {
+    return 'bg-orange-400'
+  }
+  return 'bg-[#007AFF]'
 })
 
 const progressColorClass = computed(() => {
-  switch (status.value) {
-    case 'completed':
-    case 'success':
-      return 'bg-green-500'
-    case 'failed':
-    case 'error':
-      return 'bg-red-500'
-    default:
-      return 'bg-[#007AFF]'
+  if (isAITaskSucceeded(normalizedStatus.value)) {
+    return 'bg-green-500'
   }
+  if (isAITaskFailed(normalizedStatus.value)) {
+    return 'bg-red-500'
+  }
+  return 'bg-[#007AFF]'
 })
 
 onMounted(() => {
@@ -135,19 +138,7 @@ async function handleRetry() {
   }
 }
 
-function getStatusText(taskStatus) {
-  const texts = {
-    pending: '排队中',
-    queued: '排队中',
-    processing: '执行中',
-    running: '执行中',
-    completed: '成功',
-    success: '成功',
-    failed: '失败',
-    error: '失败',
-  }
-  return texts[taskStatus] || '处理中'
-}
+const isInFlight = computed(() => isAITaskInFlight(normalizedStatus.value))
 
 </script>
 

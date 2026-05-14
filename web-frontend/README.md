@@ -36,7 +36,7 @@ http://127.0.0.1:8000/api/v1
 
 如果后端地址变化，可修改：
 
-- `src/lib/http.js`
+- `src/shared/api/http.js`
 - 或复制 `.env.example` 为 `.env` 后修改 `VITE_API_BASE_URL`
 
 ## 启动方式

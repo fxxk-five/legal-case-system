@@ -6,23 +6,24 @@ import {
   getUnauthorizedFallbackRouteName,
   isRouteAllowedForUser,
   WEB_MAIN_ROLES,
-} from '../lib/accessControl'
-import { useAuthStore } from '../stores/auth'
+} from '../../features/auth/lib/accessControl'
+import { useAuthStore } from '../../features/auth/model/store'
 
-const LoginView = () => import('../views/LoginView.vue')
-const PendingApprovalView = () => import('../views/PendingApprovalView.vue')
-const ClientMiniOnlyView = () => import('../views/ClientMiniOnlyView.vue')
-const AccessRestrictedView = () => import('../views/AccessRestrictedView.vue')
-const DashboardLayout = () => import('../views/DashboardLayout.vue')
-const OverviewView = () => import('../views/OverviewView.vue')
-const CasesView = () => import('../views/CasesView.vue')
-const CaseDetailView = () => import('../views/CaseDetailView.vue')
-const DocumentParsingView = () => import('../views/ai/DocumentParsing.vue')
-const ClientsView = () => import('../views/ClientsView.vue')
-const LawyersView = () => import('../views/LawyersView.vue')
-const AdminDashboardView = () => import('../views/AdminDashboardView.vue')
-const SuperAdminTenantsView = () => import('../views/SuperAdminTenantsView.vue')
-const SuperAdminUsersView = () => import('../views/SuperAdminUsersView.vue')
+const LoginView = () => import('../../pages/auth/LoginPage.vue')
+const ForceResetPasswordView = () => import('../../pages/system/ForceResetPasswordPage.vue')
+const PendingApprovalView = () => import('../../pages/system/PendingApprovalPage.vue')
+const ClientMiniOnlyView = () => import('../../pages/system/ClientMiniOnlyPage.vue')
+const AccessRestrictedView = () => import('../../pages/system/AccessRestrictedPage.vue')
+const DashboardLayout = () => import('../layouts/DashboardLayout.vue')
+const OverviewView = () => import('../../pages/OverviewPage.vue')
+const CasesView = () => import('../../pages/cases/CasesPage.vue')
+const CaseDetailView = () => import('../../pages/cases/CaseDetailPage.vue')
+const DocumentParsingView = () => import('../../pages/ai/DocumentParsingPage.vue')
+const ClientsView = () => import('../../pages/ClientsPage.vue')
+const LawyersView = () => import('../../pages/LawyersPage.vue')
+const AdminDashboardView = () => import('../../pages/AdminDashboardPage.vue')
+const SuperAdminTenantsView = () => import('../../pages/SuperAdminTenantsPage.vue')
+const SuperAdminUsersView = () => import('../../pages/SuperAdminUsersPage.vue')
 
 const router = createRouter({
   history: createWebHistory(),
@@ -38,6 +39,12 @@ const router = createRouter({
       name: 'pending-approval',
       component: PendingApprovalView,
       meta: { requiresAuth: true, title: '等待审批' },
+    },
+    {
+      path: '/force-reset-password',
+      name: 'force-reset-password',
+      component: ForceResetPasswordView,
+      meta: { requiresAuth: true, title: '首次改密' },
     },
     {
       path: '/client-mini-only',
@@ -146,9 +153,11 @@ router.beforeEach(async (to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
+  // 验证用户信息，确保token有效且角色信息最新
   try {
     await authStore.ensureCurrentUser()
   } catch {
+    // Token无效或后端返回错误，重定向到登录页
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
@@ -157,6 +166,25 @@ router.beforeEach(async (to) => {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
 
+  // 强制密码重置检查：必须先完成改密才能访问其他页面
+  if (user.must_reset_password && to.name !== 'force-reset-password') {
+    return {
+      name: 'force-reset-password',
+      query: {
+        redirect: to.fullPath,
+      },
+    }
+  }
+
+  // 已完成改密的用户不应访问改密页面
+  if (!user.must_reset_password && to.name === 'force-reset-password') {
+    const rawRedirect = String(to.query?.redirect || '').trim()
+    const BLOCKED = ['/force-reset-password', '/pending-approval', '/client-mini-only', '/access-restricted', '/login']
+    const safeFallback = rawRedirect && !BLOCKED.some((p) => rawRedirect === p || rawRedirect.startsWith(p + '?'))
+    return safeFallback ? rawRedirect : { name: getUnauthorizedFallbackRouteName(user) }
+  }
+
+  // 角色权限检查：验证用户角色是否允许访问目标路由
   if (!isRouteAllowedForUser(user, to)) {
     return { name: getUnauthorizedFallbackRouteName(user) }
   }

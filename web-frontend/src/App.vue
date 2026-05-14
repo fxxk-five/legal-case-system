@@ -1,7 +1,7 @@
 <template>
-  <RouterView />
+  <AppRoot />
 </template>
 
 <script setup>
-import { RouterView } from 'vue-router'
+import AppRoot from './app/App.vue'
 </script>

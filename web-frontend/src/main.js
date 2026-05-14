@@ -4,9 +4,9 @@ import 'element-plus/es/components/loading/style/css'
 import 'element-plus/es/components/message/style/css'
 import 'element-plus/es/components/message-box/style/css'
 
-import App from './App.vue'
-import router from './router'
-import pinia from './stores'
+import App from './app/App.vue'
+import router from './app/router'
+import pinia from './app/stores'
 import './style.css'
 
 const app = createApp(App)

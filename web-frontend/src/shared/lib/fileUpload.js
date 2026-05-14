@@ -1,6 +1,7 @@
 import axios from 'axios'
 
-import http from './http'
+import http from '../api/http.js'
+import { extractFriendlyError } from './formMessages.js'
 
 const FILE_EXTENSION_MIME_MAP = {
   pdf: 'application/pdf',
@@ -48,6 +49,15 @@ function inferContentType(file) {
 }
 
 function normalizeUploadErrorMessage(error, fallback) {
+  if (typeof error?.userMessage === 'string' && error.userMessage.trim()) {
+    return error.userMessage.trim()
+  }
+
+  const friendlyMessage = extractFriendlyError(error, '')
+  if (friendlyMessage) {
+    return friendlyMessage
+  }
+
   const payload = error?.response?.data
   if (payload && typeof payload === 'object') {
     if (typeof payload.message === 'string' && payload.message.trim()) {
@@ -160,3 +170,4 @@ export async function uploadCaseFileByPolicy(caseId, file, options = {}) {
 
   return uploadViaServerProxy(policy, file, options)
 }
+

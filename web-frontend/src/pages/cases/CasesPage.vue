@@ -249,9 +249,9 @@ import { ElMessage } from 'element-plus/es/components/message/index'
 import { RouterLink } from 'vue-router'
 import { PlusIcon, XIcon, Loader2Icon, SearchIcon } from 'lucide-vue-next'
 
-import { formatCaseStatus, formatLegalType, formatText } from '../lib/displayText'
-import http from '../lib/http'
-import { extractFriendlyError } from '../lib/formMessages'
+import { formatCaseStatus, formatLegalType, formatText } from '../../shared/lib/displayText'
+import http from '../../shared/api/http'
+import { extractFriendlyError } from '../../shared/lib/formMessages'
 
 const LEGAL_TYPE_OPTIONS = [
   { value: 'civil_loan', label: '民间借贷' },
