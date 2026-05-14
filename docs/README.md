@@ -1,6 +1,6 @@
 ﻿# 项目文档入口
 
-> `docs` 已按“只保留仍有执行价值的信息”收口；历史阶段报告、执行单、归档记录已合并删除。
+> `docs` 已按“只保留仍有执行价值的信息”收口；历史阶段报告、临时拆分计划、一次性修复记录、旧导入文件已合并删除。
 
 ## 建议先读
 
@@ -24,7 +24,7 @@
 
 - 每次优化、更新、修复、结构调整后，必须先更新 `docs/current-project-status.md`。
 - 架构收口、问题闭环、风险结论更新 `docs/restructure-overall-assessment-2026-03-26.md`。
-- 新增或保留的 `docs/*.md`、`plans/*.md` 必须登记到 `docs/documentation-map.md`。
+- 新增或保留的 `docs/*.md`、`plans/*.md` 必须登记到 `docs/documentation-map.md`；临时执行记录默认不进仓库，必要信息合并进状态文档。
 - 合并前执行 `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`。
 - 如有代码、脚本、部署、CI 等非文档变更，还必须执行 `powershell -ExecutionPolicy Bypass -File scripts/check-status-doc-update.ps1`。
 - 建议本地执行 `powershell -ExecutionPolicy Bypass -File scripts/install-git-hooks.ps1`，启用 `pre-commit` / `pre-push` 自动门禁。

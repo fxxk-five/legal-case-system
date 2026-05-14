@@ -734,14 +734,14 @@
 - 变更摘要：
   - 完成 `files / upload`、`files / reanalysis-status`、`files / delete-access` 三个文件模块边界节点，相关写操作统一收口到 `FilesRepository`。
   - 完成 `ai / task-create`、`ai / runtime-command`、`ai / submit-budget-flow` 三个 AI 模块边界节点，相关写操作统一收口到 `AIRepository`。
-  - `docs/backend-module-boundary-checklist.md` 已清零，后端模块边界清单全部完成。
+  - 后端模块边界清单已清零，完成记录已收敛到本文档，不再保留单独 checklist。
 - 影响范围：`backend / docs`
 - 受影响目录：
   - `backend/app/modules/files/{repository.py,case_file_service.py,case_file_reanalysis_service.py,router.py,upload_service.py}`
   - `backend/app/modules/ai/{repository.py,services/analysis_service.py,services/parse_service.py,services/falsification_service.py,services/runtime_service.py,services/task_command_service.py,services/worker_dispatch_service.py,services/submission_service.py,services/budget_service.py,services/flow_service.py}`
   - `backend/tests/test_files_repository_boundaries.py`
   - `backend/tests/test_ai_repository_boundary.py`
-  - `docs/backend-module-boundary-checklist.md`
+  - `docs/current-project-status.md`
 - 验证结果：
   - `pytest backend/tests/test_files_repository_boundaries.py -q`：`4 passed`
   - `pytest backend/tests/test_case_flow_and_file_visibility.py -k "upload or delete or access_link or direct_upload_completion or debounce" -q`：`6 passed, 5 deselected`
@@ -828,12 +828,12 @@
 - 变更类型：修复 / 门禁
 - 变更摘要：
   - 新增 `backend/pytest.ini`，限定后端全量测试只收集 `backend/tests`，避免 `backend/test_results.txt` 被 pytest 当成测试文件并因非 UTF-8 内容中断收集。
-  - 新增 `docs/health-repair-execution-2026-05-14.md`，记录本次健康修复的范围、执行步骤与验证命令。
-  - 同步更新 `docs/documentation-map.md`，使新增健康修复文档纳入文档完整性门禁。
+  - 新增 `backend/pytest.ini`，记录本次健康修复的范围、执行步骤与验证命令到本文档。
+  - 同步更新 `docs/documentation-map.md`，保持文档完整性门禁只追踪常驻文档。
 - 影响范围：`backend` / `docs`
 - 受影响目录：
   - `backend/pytest.ini`
-  - `docs/health-repair-execution-2026-05-14.md`
+  - `docs/current-project-status.md`
   - `docs/documentation-map.md`
   - `docs/current-project-status.md`
 - 验证结果：
@@ -848,18 +848,35 @@
 - 变更摘要：
   - 为混合工作区创建本地恢复快照，保留 tracked diff 与 untracked 文件压缩包。
   - 将可独立审阅的 docs/tooling、backend A3、Web 结构迁移、小程序结构迁移拆成独立分支并推送到 GitHub。
-  - 新增 `docs/working-tree-risk-closure-2026-05-14.md`，记录已推送分支、验证证据、仍需本地处理的路径和后续顺序。
+  - 已将已推送分支、验证证据与后续顺序收敛到本文档，不再保留单独风险闭环记录。
 - 影响范围：`docs` / `backend` / `web-frontend` / `mini-program`
 - 受影响目录：
-  - `docs/working-tree-risk-closure-2026-05-14.md`
-  - `docs/documentation-map.md`
   - `docs/current-project-status.md`
+  - `docs/documentation-map.md`
 - 验证结果：
   - `codex/chore-docs-tooling-and-deploy`：docs integrity、status-doc、mojibake 检查通过。
   - `codex/backend-a3-ai-files-integrations`：`216 passed, 5 warnings`，边界检查通过。
   - `codex/refactor-web-frontend-structure`：lint、`58 passed`、build 通过。
   - `codex/refactor-mini-program-structure`：小程序静态审计 `17/17 passed`。
 - 状态结论：混合工作区的“丢失风险”和“不可审阅风险”已显著降低；`codex/ai-agent-rag-review` 仍保留为混合源分支，不建议直接开 PR。
+
+### 6.38 2026-05-14 变更记录（旧文档清理）
+
+- 变更类型：文档治理
+- 变更摘要：
+  - 删除已完成 checklist、临时分支拆分计划、一次性健康修复记录、旧提交说明、旧导入 CSV 与阶段性重构流水报告。
+  - 将仍有价值的结论保留在 `docs/current-project-status.md`、`docs/restructure-overall-assessment-2026-03-26.md`、`docs/documentation-map.md` 与常驻流程文档中。
+  - `docs` 与 `plans` 收敛到 15 个 Markdown 常驻文档，降低后续维护和检索噪音。
+- 影响范围：`docs` / `plans`
+- 受影响目录：
+  - `docs/README.md`
+  - `docs/current-project-status.md`
+  - `docs/documentation-map.md`
+  - `docs/*` 历史文档删除
+  - `plans/*` 旧导入文件删除
+- 验证结果：
+  - `powershell -ExecutionPolicy Bypass -File scripts/check-docs-integrity.ps1`：`PASS`
+- 状态结论：文档入口、状态真源、上线作业单、部署说明、用户手册、API/架构契约与总蓝图保留；临时留痕不再作为仓库常驻文档。
 
 ## 7. 当前未完成事项
 
