@@ -87,6 +87,7 @@
                 maxlength="11"
                 class="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none focus:border-primary"
                 placeholder="账号（手机号）"
+                @blur="handlePasswordPhoneBlur"
                 @keyup.enter="handlePasswordLogin"
               />
               <input
@@ -101,7 +102,7 @@
                 v-model.trim="passwordForm.tenant_code"
                 maxlength="50"
                 class="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none focus:border-primary"
-                placeholder="可选：租户编码"
+                :placeholder="passwordTenantPlaceholder"
                 @keyup.enter="handlePasswordLogin"
               />
 
@@ -128,6 +129,7 @@
                 maxlength="11"
                 class="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none focus:border-primary"
                 placeholder="手机号"
+                @blur="handleSmsPhoneBlur"
               />
 
               <div class="grid grid-cols-[1fr_auto] gap-3">
@@ -152,7 +154,7 @@
                 v-model.trim="smsForm.tenant_code"
                 maxlength="50"
                 class="w-full rounded-2xl border border-border bg-white px-4 py-3 text-sm outline-none focus:border-primary"
-                placeholder="可选：租户编码"
+                :placeholder="smsTenantPlaceholder"
                 @keyup.enter="handleSmsLogin"
               />
 
@@ -218,15 +220,15 @@ import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { Loader2Icon, QrCodeIcon, RefreshCwIcon, ScaleIcon, SmartphoneIcon } from 'lucide-vue-next'
 
-import http from '../lib/http'
+import http from '../../shared/api/http'
 import {
   extractFriendlyError,
   validatePassword,
   validatePhone,
   validateSmsCode,
   validateTenantCode,
-} from '../lib/formMessages'
-import { useAuthStore } from '../stores/auth'
+} from '../../shared/lib/formMessages'
+import { useAuthStore } from '../../features/auth/model/store'
 
 const route = useRoute()
 const router = useRouter()
@@ -268,6 +270,9 @@ let pollTimer = null
 
 const statusMessage = ref('')
 const statusTone = ref('info')
+const passwordLoginAdvice = ref(null)
+const smsLoginAdvice = ref(null)
+
 
 const currentMethodTitle = computed(() => {
   if (loginMethod.value === 'sms') return '短信验证码登录已启用'
@@ -321,6 +326,15 @@ const smsButtonLabel = computed(() => {
   }
   return '发送验证码'
 })
+
+const passwordTenantPlaceholder = computed(() =>
+  passwordLoginAdvice.value?.requires_tenant_code ? '必填：租户编码' : '可选：租户编码',
+)
+
+const smsTenantPlaceholder = computed(() =>
+  smsLoginAdvice.value?.requires_tenant_code ? '必填：租户编码' : '可选：租户编码',
+)
+
 
 const statusClass = computed(() => {
   if (statusTone.value === 'success') {
@@ -395,11 +409,80 @@ function clearSmsCooldown() {
   smsCooldown.value = 0
 }
 
-function validateOptionalTenantCode(value) {
-  return validateTenantCode(value, { required: false })
+function validateOptionalTenantCode(value, { required = false } = {}) {
+  return validateTenantCode(value, { required })
+}
+
+async function fetchLoginAdvice({ phone, tenantCode = '', target = 'password' } = {}) {
+  const normalizedPhone = String(phone || '').trim()
+  if (!normalizedPhone) {
+    if (target === 'sms') {
+      smsLoginAdvice.value = null
+    } else {
+      passwordLoginAdvice.value = null
+    }
+    return null
+  }
+
+  if (validatePhone(normalizedPhone)) {
+    return null
+  }
+
+  const payload = {
+    phone: normalizedPhone,
+    tenant_code: String(tenantCode || '').trim() || null,
+    case_invite_token: null,
+  }
+
+  const { data } = await http.post('/auth/login-advice', payload, { skipAuthRefresh: true })
+  if (target === 'sms') {
+    smsLoginAdvice.value = data
+  } else {
+    passwordLoginAdvice.value = data
+  }
+  if (data?.requires_tenant_code && !payload.tenant_code) {
+    setStatus('同手机号存在多个租户，请先填写 tenant_code。', 'warning')
+  } else if (data?.requires_admin_approval) {
+    setStatus('账号已创建但待管理员审批，请稍后再试。', 'warning')
+  } else if (data?.recommended_entry === 'mini-program') {
+    setStatus('当前角色建议优先使用小程序办理业务。', 'info')
+  }
+  return data
+}
+
+async function ensureLoginAdvice(target) {
+  if (target === 'sms') {
+    return fetchLoginAdvice({
+      phone: smsForm.value.phone,
+      tenantCode: smsForm.value.tenant_code,
+      target: 'sms',
+    })
+  }
+  return fetchLoginAdvice({
+    phone: passwordForm.value.phone,
+    tenantCode: passwordForm.value.tenant_code,
+    target: 'password',
+  })
+}
+
+async function handlePasswordPhoneBlur() {
+  try {
+    await ensureLoginAdvice('password')
+  } catch {
+    passwordLoginAdvice.value = null
+  }
+}
+
+async function handleSmsPhoneBlur() {
+  try {
+    await ensureLoginAdvice('sms')
+  } catch {
+    smsLoginAdvice.value = null
+  }
 }
 
 async function redirectAfterLogin() {
+
   const redirect = String(route.query.redirect || '')
   await router.replace(redirect || '/')
 }
@@ -407,14 +490,27 @@ async function redirectAfterLogin() {
 async function handlePasswordLogin() {
   const phoneError = validatePhone(passwordForm.value.phone, '账号（手机号）')
   const passwordError = validatePassword(passwordForm.value.password)
-  const tenantCodeError = validateOptionalTenantCode(passwordForm.value.tenant_code)
-  const firstError = phoneError || passwordError || tenantCodeError
-  if (firstError) {
-    setStatus(firstError, 'warning')
+  if (phoneError || passwordError) {
+    setStatus(phoneError || passwordError, 'warning')
+    return
+  }
+
+  try {
+    await ensureLoginAdvice('password')
+  } catch {
+    passwordLoginAdvice.value = null
+  }
+
+  const tenantCodeError = validateOptionalTenantCode(passwordForm.value.tenant_code, {
+    required: Boolean(passwordLoginAdvice.value?.requires_tenant_code),
+  })
+  if (tenantCodeError) {
+    setStatus(tenantCodeError, 'warning')
     return
   }
 
   submitting.value = 'password'
+
   clearStatus()
   try {
     await authStore.loginByPassword(passwordForm.value)
@@ -428,10 +524,22 @@ async function handlePasswordLogin() {
 
 async function sendLoginCode() {
   const phoneError = validatePhone(smsForm.value.phone)
-  const tenantCodeError = validateOptionalTenantCode(smsForm.value.tenant_code)
-  const firstError = phoneError || tenantCodeError
-  if (firstError) {
-    setStatus(firstError, 'warning')
+  if (phoneError) {
+    setStatus(phoneError, 'warning')
+    return
+  }
+
+  try {
+    await ensureLoginAdvice('sms')
+  } catch {
+    smsLoginAdvice.value = null
+  }
+
+  const tenantCodeError = validateOptionalTenantCode(smsForm.value.tenant_code, {
+    required: Boolean(smsLoginAdvice.value?.requires_tenant_code),
+  })
+  if (tenantCodeError) {
+    setStatus(tenantCodeError, 'warning')
     return
   }
 
@@ -456,17 +564,31 @@ async function sendLoginCode() {
   }
 }
 
+
 async function handleSmsLogin() {
   const phoneError = validatePhone(smsForm.value.phone)
   const codeError = validateSmsCode(smsForm.value.code)
-  const tenantCodeError = validateOptionalTenantCode(smsForm.value.tenant_code)
-  const firstError = phoneError || codeError || tenantCodeError
-  if (firstError) {
-    setStatus(firstError, 'warning')
+  if (phoneError || codeError) {
+    setStatus(phoneError || codeError, 'warning')
+    return
+  }
+
+  try {
+    await ensureLoginAdvice('sms')
+  } catch {
+    smsLoginAdvice.value = null
+  }
+
+  const tenantCodeError = validateOptionalTenantCode(smsForm.value.tenant_code, {
+    required: Boolean(smsLoginAdvice.value?.requires_tenant_code),
+  })
+  if (tenantCodeError) {
+    setStatus(tenantCodeError, 'warning')
     return
   }
 
   submitting.value = 'sms'
+
   clearStatus()
   try {
     await authStore.loginBySmsCode(smsForm.value)

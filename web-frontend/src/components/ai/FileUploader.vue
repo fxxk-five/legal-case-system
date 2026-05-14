@@ -57,8 +57,8 @@ import { ref } from 'vue'
 import { ElMessage } from 'element-plus/es/components/message/index'
 import { UploadCloudIcon, FileIcon } from 'lucide-vue-next'
 
-import { uploadCaseFileByPolicy } from '@/lib/fileUpload'
-import { extractFriendlyError } from '@/lib/formMessages'
+import { uploadCaseFileByPolicy } from '@/shared/lib/fileUpload'
+import { extractFriendlyError } from '@/shared/lib/formMessages'
 
 const props = defineProps({
   caseId: {
@@ -153,3 +153,4 @@ const handleError = (error) => {
   @apply !rounded-2xl !border !border-gray-100 !bg-white !shadow-sm;
 }
 </style>
+

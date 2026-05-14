@@ -85,7 +85,7 @@
 import { ref, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { extractFriendlyError } from '@/lib/formMessages'
+import { extractFriendlyError } from '@/shared/lib/formMessages'
 import {
   ArrowLeftIcon,
   FileUpIcon,
@@ -95,7 +95,7 @@ import {
   ListIcon,
   FileTextIcon
 } from 'lucide-vue-next'
-import { useAIStore } from '@/stores/ai'
+import { useAIStore } from '@/features/ai-tasks/model/store'
 import FileUploader from '@/components/ai/FileUploader.vue'
 import TaskProgress from '@/components/ai/TaskProgress.vue'
 import FactsList from '@/components/ai/FactsList.vue'

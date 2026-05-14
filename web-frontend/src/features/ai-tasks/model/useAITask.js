@@ -1,20 +1,13 @@
 import { ref, watch } from 'vue'
-import { useAIStore } from '@/stores/ai'
-import { useWebSocket } from './useWebSocket'
-
-const STATUS_ALIAS = {
-  queued: 'pending',
-  running: 'processing',
-  success: 'completed',
-  error: 'failed',
-}
-
-function normalizeStatus(raw) {
-  if (!raw) return 'pending'
-  if (STATUS_ALIAS[raw]) return STATUS_ALIAS[raw]
-  if (['pending', 'processing', 'completed', 'failed'].includes(raw)) return raw
-  return raw
-}
+import { useAIStore } from '@/features/ai-tasks/model/store'
+import { useWebSocket } from '@/composables/useWebSocket'
+import {
+  isAITaskFailed,
+  isAITaskSucceeded,
+  isAITaskTerminal,
+  normalizeAITaskStatus,
+  resolveAITaskStatusFromEvent,
+} from '@/features/ai-tasks/model/trackingPolicy'
 
 function resolveTaskId(source) {
   if (typeof source === 'function') {
@@ -24,10 +17,6 @@ function resolveTaskId(source) {
     return String(source.value || '').trim()
   }
   return String(source || '').trim()
-}
-
-function isTerminalStatus(taskStatus) {
-  return taskStatus === 'completed' || taskStatus === 'failed'
 }
 
 export function useAITask(taskIdSource, options = {}) {
@@ -78,22 +67,22 @@ export function useAITask(taskIdSource, options = {}) {
   }
 
   function applyTerminal(taskStatus) {
-    completed.value = taskStatus === 'completed'
-    failed.value = taskStatus === 'failed'
+    completed.value = isAITaskSucceeded(taskStatus)
+    failed.value = isAITaskFailed(taskStatus)
 
-    if (isTerminalStatus(taskStatus)) {
+    if (isAITaskTerminal(taskStatus)) {
       stopPolling()
-      if (taskStatus === 'completed' && typeof options.onCompleted === 'function') {
+      if (completed.value && typeof options.onCompleted === 'function') {
         options.onCompleted()
       }
-      if (taskStatus === 'failed' && typeof options.onFailed === 'function') {
+      if (failed.value && typeof options.onFailed === 'function') {
         options.onFailed(message.value)
       }
     }
   }
 
   function applyTaskSnapshot(task = {}, eventTimestamp = '') {
-    const nextStatus = normalizeStatus(task.status)
+    const nextStatus = normalizeAITaskStatus(task.status)
     const nextProgress = Number(task.progress ?? 0)
     const nextMessage = task.message || task.error_message || ''
 
@@ -117,15 +106,11 @@ export function useAITask(taskIdSource, options = {}) {
 
   function applyTaskEvent(payload) {
     const nextProgress = Number(payload.progress ?? 0)
-    let nextStatus = 'processing'
-
-    if (payload.type === 'completed') {
-      nextStatus = 'completed'
-    } else if (payload.type === 'failed') {
-      nextStatus = 'failed'
-    } else if (payload.type === 'progress') {
-      nextStatus = nextProgress <= 0 ? 'pending' : 'processing'
-    }
+    const nextStatus = resolveAITaskStatusFromEvent({
+      eventType: payload.type,
+      eventStatus: payload.status,
+      progress: Number.isNaN(nextProgress) ? 0 : nextProgress,
+    })
 
     applyTaskSnapshot(
       {

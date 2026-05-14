@@ -137,7 +137,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus/es/components/message/index'
-import { extractFriendlyError } from '@/lib/formMessages'
+import { extractFriendlyError } from '@/shared/lib/formMessages'
 import {
   ArrowLeftIcon,
   Loader2Icon,
@@ -146,7 +146,7 @@ import {
   CheckCircle2Icon,
   AlertCircleIcon
 } from 'lucide-vue-next'
-import { useAIStore } from '@/stores/ai'
+import { useAIStore } from '@/features/ai-tasks/model/store'
 import TaskProgress from '@/components/ai/TaskProgress.vue'
 
 defineOptions({

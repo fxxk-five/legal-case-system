@@ -1,13 +1,6 @@
-import http from '@/lib/http'
+import http from '../../../shared/api/http.js'
 
 const API_BASE = '/ai'
-
-function createIdempotencyKey(prefix = 'ai-task') {
-  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-    return `${prefix}-${crypto.randomUUID()}`
-  }
-  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
 
 function normalizeFact(item) {
   const metadata = item?.metadata || {}
@@ -45,9 +38,12 @@ function normalizeTask(task) {
 }
 
 function withIdempotencyHeaders(headers = {}, key) {
+  if (!key) {
+    throw new Error('Idempotency key is required for AI tasks')
+  }
   return {
     ...headers,
-    'Idempotency-Key': key || createIdempotencyKey(),
+    'Idempotency-Key': key,
   }
 }
 
