@@ -842,6 +842,25 @@
   - `python scripts/check_mojibake.py`：`PASS`
 - 状态结论：健康检查暴露的文档门禁与 pytest 收集风险已纳入 docs/tooling 分支收口，正式上线阻塞项不变。
 
+### 6.37 2026-05-14 变更记录（混合工作区风险收口）
+
+- 变更类型：风险收口 / 分支治理
+- 变更摘要：
+  - 为混合工作区创建本地恢复快照，保留 tracked diff 与 untracked 文件压缩包。
+  - 将可独立审阅的 docs/tooling、backend A3、Web 结构迁移、小程序结构迁移拆成独立分支并推送到 GitHub。
+  - 新增 `docs/working-tree-risk-closure-2026-05-14.md`，记录已推送分支、验证证据、仍需本地处理的路径和后续顺序。
+- 影响范围：`docs` / `backend` / `web-frontend` / `mini-program`
+- 受影响目录：
+  - `docs/working-tree-risk-closure-2026-05-14.md`
+  - `docs/documentation-map.md`
+  - `docs/current-project-status.md`
+- 验证结果：
+  - `codex/chore-docs-tooling-and-deploy`：docs integrity、status-doc、mojibake 检查通过。
+  - `codex/backend-a3-ai-files-integrations`：`216 passed, 5 warnings`，边界检查通过。
+  - `codex/refactor-web-frontend-structure`：lint、`58 passed`、build 通过。
+  - `codex/refactor-mini-program-structure`：小程序静态审计 `17/17 passed`。
+- 状态结论：混合工作区的“丢失风险”和“不可审阅风险”已显著降低；`codex/ai-agent-rag-review` 仍保留为混合源分支，不建议直接开 PR。
+
 ## 7. 当前未完成事项
 
 ## 7.1 正式上线阻塞项（P0）
